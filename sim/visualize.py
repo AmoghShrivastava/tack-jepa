@@ -1,6 +1,7 @@
 """Taxel force heatmap for an episode dump (Phase 2 exit criterion, PRD §9).
 
-    python -m sim.visualize --episode episodes/phase1_smoke.npz --out docs/figures/phase2_heatmap.png
+    python -m sim.visualize --episode episodes/phase1_smoke.npz \
+        --out docs/figures/phase2_heatmap.png
 """
 
 from __future__ import annotations

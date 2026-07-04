@@ -98,5 +98,4 @@ def test_probes():
     )
     for v in losses.values():
         assert torch.isfinite(v)
-        v_ = v  # all differentiable
-    sum(losses.values()).backward()
+    sum(losses.values()).backward()  # all differentiable

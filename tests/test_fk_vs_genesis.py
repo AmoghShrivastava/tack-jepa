@@ -52,7 +52,7 @@ def test_link_poses_match_genesis(env, chain):
         for li, name in enumerate(env.link_names):
             if name not in ours:
                 continue
-            got_pos, got_quat = ours[name].pos, ours[name].quat
+            got_pos = ours[name].pos
             assert np.allclose(got_pos, gs_pos[li], atol=1e-5), (
                 f"trial {trial} link {name}: ours {got_pos} vs genesis {gs_pos[li]}"
             )

@@ -70,11 +70,12 @@ class TaxelGraphEncoder(nn.Module):
         self.pool = AttentionPool(hidden, global_dim)
         # No-FK ablation: geometry is withheld, so the model gets the raw joint
         # vector as a single opaque global feature (PRD §7.2) fused post-pool
-        self.qpos_mlp = (
-            None
-            if use_geometry
-            else nn.Sequential(nn.Linear(qpos_dim, global_dim), nn.GELU(), nn.Linear(global_dim, global_dim))
-        )
+        if use_geometry:
+            self.qpos_mlp = None
+        else:
+            self.qpos_mlp = nn.Sequential(
+                nn.Linear(qpos_dim, global_dim), nn.GELU(), nn.Linear(global_dim, global_dim)
+            )
 
     def forward(
         self,
