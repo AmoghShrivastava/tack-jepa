@@ -1,0 +1,20 @@
+# Phase 4 CPU validation size: architecture identical to base (GATv2 encoder,
+# EMA target, action-conditioned predictor, VICReg), dimensions cut so ~300
+# steps finish in tens of minutes on a laptop CPU (measured: full-size model
+# is ~60-100 s/step on CPU; this size is ~5-10 s/step). The full-size
+# base.yaml model is what trains on GPU from Phase 6.
+model:
+  hidden: 96
+  n_layers: 3
+  heads: 4
+  node_out: 96
+  global_dim: 192
+
+predictor:
+  n_layers: 2
+
+data:
+  batch_size: 2
+
+train:
+  steps: 300

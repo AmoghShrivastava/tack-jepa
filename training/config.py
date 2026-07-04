@@ -27,9 +27,16 @@ def deep_merge(base: dict, override: dict) -> dict:
 
 def _parse_value(raw: str):
     try:
-        return yaml.safe_load(raw)  # ints, floats, bools, null, lists
+        val = yaml.safe_load(raw)  # ints, floats, bools, null, lists
     except yaml.YAMLError:
         return raw
+    if isinstance(val, str):
+        # YAML 1.1 leaves '3e-4' (no dot) as a string; users mean the float
+        try:
+            return float(val)
+        except ValueError:
+            return val
+    return val
 
 
 def apply_dotted_overrides(cfg: dict, overrides: list[str]) -> dict:
@@ -47,8 +54,11 @@ def apply_dotted_overrides(cfg: dict, overrides: list[str]) -> dict:
 
 def load_config(variant: str | None = None, overrides: list[str] | None = None) -> dict:
     cfg = yaml.safe_load((CONFIG_DIR / "base.yaml").read_text())
-    if variant and variant != "baseline":  # base.yaml IS the baseline
-        vpath = CONFIG_DIR / f"{variant}.yaml"
+    for name in (variant or "").split(","):
+        name = name.strip()
+        if not name or name == "baseline":  # base.yaml IS the baseline
+            continue
+        vpath = CONFIG_DIR / f"{name}.yaml"
         cfg = deep_merge(cfg, yaml.safe_load(vpath.read_text()) or {})
     if overrides:
         cfg = apply_dotted_overrides(cfg, overrides)

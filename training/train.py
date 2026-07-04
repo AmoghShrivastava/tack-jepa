@@ -231,7 +231,8 @@ def train(cfg: dict) -> dict:
                 f"[{cfg['run_name']}] step {step:4d} "
                 f"loss {logs['loss_total']:.4f} pred {logs['loss_pred']:.4f} "
                 f"canary {logs['canary_cosine']:.3f} "
-                f"({time.time() - t0:.0f}s)"
+                f"({time.time() - t0:.0f}s)",
+                flush=True,
             )
         step += 1
 
