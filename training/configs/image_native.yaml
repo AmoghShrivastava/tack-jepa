@@ -1,0 +1,5 @@
+# Ablation (H2): same simulated contact events rendered as per-link
+# pseudo-tactile images fed to a ViT-style patch encoder (PRD §7.2)
+run_name: image_native
+model:
+  variant: image_native

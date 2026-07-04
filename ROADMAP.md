@@ -8,7 +8,7 @@ Living document tracking the phased build order from [PRD.md](PRD.md) §9.
 | 0 | Repo scaffold, `pyproject.toml`, CI skeleton, PRD committed, this file | `pytest` runs (even with zero tests), CI green | No | **Done** (2026-07-04; pytest 6 passing, CI run green) |
 | 1 | Genesis environment: Allegro-class hand URDF loaded, single object, basic press episode runs headless | A single episode's raw contact-solver output can be dumped to disk and inspected | No (CPU only) | **Done** (2026-07-04; genesis 1.2.1 on Windows CPU, press episode with sustained ball-in-palm contact, dump inspected) |
 | 2 | Taxel layout generation (FPS per link) + taxel force synthesis (§5.3) + FK module, with unit tests | Unit tests pass; taxel force heatmap for one episode looks physically sensible | No | **Done** (2026-07-04; FK matches Genesis to 1e-5, force conservation tested, heatmap in docs/figures/phase2_heatmap.png shows load under the object) |
-| 3 | Graph construction + WebDataset sharding + Stage A data generation at small scale | A PyTorch `Dataset`/`DataLoader` yields correctly-shaped graph batches | No | Not started |
+| 3 | Graph construction + WebDataset sharding + Stage A data generation at small scale | A PyTorch `Dataset`/`DataLoader` yields correctly-shaped graph batches | No | **Done** (2026-07-04; 210 episodes → 140 train / 70 val object-disjoint shards; loader verified on real shards, ~1.1 s/batch B=4) |
 | 4 | Full model: online + EMA target encoder, predictor, JEPA loss, VICReg, probe heads — tiny-scale training run to confirm the loop works | Loss decreases, no immediate collapse, all §7.2 ablation code paths runnable | Optional, minimal (confirm with user first) | Not started |
 | 5 | **Scale-up decision point** — review Phases 0–4 with the user before provisioning any Nebius training cluster | Explicit human go-ahead | **Yes, from here on** | Not started — hard gate |
 | 6 | Stage B/C data generation at scale + full pretraining incl. all §7.2 ablations | Ablation results reported per §7.6 | Yes | Not started |
@@ -33,6 +33,17 @@ Living document tracking the phased build order from [PRD.md](PRD.md) §9.
 - **2026-07-04 (Phase 0):** Config management = **plain YAML + argparse** (PRD §8 left this open). Rationale: the ablation suite is 5 enumerable variants, not a large sweep space; simple per-ablation YAML files overriding a base config are fully debuggable with no framework indirection. Revisit if sweep needs grow.
 - **2026-07-04 (Phase 0):** Package management = **pip + venv, Python 3.10** (user's choice). Genesis (`genesis-world`) supports Python 3.10–3.13 as of its April 2026 PyPI release; 3.10.10 is what's installed locally. PRD's "3.11" was a placeholder pending this verification.
 - **2026-07-04 (Phase 0):** Runtime dependencies are added and pinned in `pyproject.toml` at the start of the phase that first needs them, not all up front — keeps each phase's environment change small and independently verifiable.
+
+- **2026-07-04 (Phase 3):** Stage A = 210 randomized press episodes (6 object variants:
+  3 sphere sizes, 3 boxes; jittered drop pose, close magnitude). Val split holds out
+  whole variants 2 & 4 (object-disjoint, PRD §7.3). Slip ground truth from contact
+  tangential speeds; labels are rare in Stage A (~6e-5 taxel-level — static presses
+  slip only during landing transients), so the slip probe uses pos_weight; Stage B
+  dynamic grasps are the real slip data. Radius graphs built at load time (cheap for
+  9-step windows); precompute into shards if the loader bottlenecks at cluster scale.
+- **2026-07-04 (Phase 3):** webdataset on Windows: bare `C:\` paths and `file:///C:/`
+  URLs both fail (different code paths); scheme-less relative forward-slash paths
+  work everywhere (`data.shard_writer.local_wds_url`).
 
 ## Phase 8+ flagged items (per PRD)
 

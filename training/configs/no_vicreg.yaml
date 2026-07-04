@@ -1,0 +1,8 @@
+# Ablation: EMA teacher only, no VICReg — does EMA alone prevent collapse?
+# (PRD §7.2)
+run_name: no_vicreg
+model:
+  variant: no_vicreg
+train:
+  vicreg_var_weight: 0.0
+  vicreg_cov_weight: 0.0

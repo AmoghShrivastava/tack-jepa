@@ -16,6 +16,7 @@ outputs/
 # Generated data (episode dumps, WebDataset shards) — never commit datasets
 shards/
 episodes/
+datasets/
 *.tar
 
 # OS / editor

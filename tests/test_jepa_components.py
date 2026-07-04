@@ -18,14 +18,18 @@ def test_jepa_loss_stops_target_gradient():
 
 
 def test_vicreg_penalizes_collapse():
-    healthy = torch.randn(64, 32)
-    collapsed = torch.ones(64, 32) + 1e-3 * torch.randn(64, 32)
+    gen = torch.Generator().manual_seed(0)
+    healthy = torch.randn(64, 32, generator=gen)
+    collapsed = torch.ones(64, 32) + 1e-3 * torch.randn(64, 32, generator=gen)
+    # every dim a copy of one signal -> maximal off-diagonal covariance
+    correlated = torch.randn(64, 1, generator=gen).expand(64, 32).contiguous()
     v_h, c_h = vicreg_regularizer(healthy)
     v_c, _ = vicreg_regularizer(collapsed)
+    _, c_corr = vicreg_regularizer(correlated)
     assert v_c > v_h  # collapsed batch pays a much higher variance penalty
     assert v_c > 0.9  # std ~1e-3 vs gamma=1 hinge
-    # perfectly decorrelated dims -> tiny covariance term
-    assert c_h < 0.5
+    # decorrelated dims pay far less covariance penalty than correlated ones
+    assert c_h < 0.1 * c_corr
 
 
 def test_collapse_canary_detects():

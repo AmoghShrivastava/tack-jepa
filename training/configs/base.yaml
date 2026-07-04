@@ -1,0 +1,48 @@
+# TacK-JEPA full default config (PRD §5, §6.2). Variant YAMLs override subsets.
+run_name: baseline
+seed: 0
+out_dir: runs
+
+data:
+  shard_dir: datasets/shards
+  context_len: 8
+  horizon: 1          # curriculum: raise toward 8 as training stabilizes (§6.2)
+  stride: 4
+  batch_size: 8
+  num_workers: 0
+
+model:
+  variant: baseline   # baseline | no_fk | image_native | reconstruction | no_vicreg
+  n_links: 21
+  link_emb_dim: 16
+  hidden: 256
+  n_layers: 6
+  heads: 8
+  node_out: 256
+  global_dim: 512
+
+predictor:
+  n_layers: 4
+  heads: 8
+  max_horizon: 8
+
+train:
+  steps: 300
+  lr: 3.0e-4
+  weight_decay: 0.05
+  warmup_steps: 50
+  grad_clip: 1.0
+  ema_start: 0.996
+  ema_end: 0.9999
+  vicreg_var_weight: 1.0
+  vicreg_cov_weight: 0.04
+  # probes are auxiliary; detached from the encoder by default and capped at
+  # <=0.1 of the JEPA loss if ever trained jointly (PRD §5.10)
+  probe_weight: 0.05
+  probe_grad_to_encoder: false
+  log_every: 10
+  device: cpu         # cuda on Nebius (Phase 5+, gated)
+
+wandb:
+  mode: disabled      # disabled locally; offline/online for real runs
+  project: tack-jepa

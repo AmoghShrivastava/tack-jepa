@@ -39,11 +39,19 @@ class PhysicsProbes(nn.Module):
         force_mag: torch.Tensor,
         slip: torch.Tensor,
         contact_area: torch.Tensor,
+        slip_pos_weight: float | None = 50.0,
     ) -> dict[str, torch.Tensor]:
+        # slip labels are heavily imbalanced in Stage A (static presses slip
+        # only in landing transients, ~1e-4 positive rate) — weight positives
+        pw = (
+            torch.tensor(slip_pos_weight, device=slip.device)
+            if slip_pos_weight
+            else None
+        )
         return {
             "force_mag": nn.functional.mse_loss(out["force_mag"], force_mag),
             "slip": nn.functional.binary_cross_entropy_with_logits(
-                out["slip_logit"], slip
+                out["slip_logit"], slip, pos_weight=pw
             ),
             "contact_area": nn.functional.mse_loss(out["contact_area"], contact_area),
         }

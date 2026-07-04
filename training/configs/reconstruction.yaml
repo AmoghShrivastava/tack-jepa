@@ -1,0 +1,8 @@
+# Ablation (H3): regress raw future per-taxel forces; no target encoder, no
+# EMA, no latent objective (PRD §7.2)
+run_name: reconstruction
+model:
+  variant: reconstruction
+train:
+  vicreg_var_weight: 0.0
+  vicreg_cov_weight: 0.0

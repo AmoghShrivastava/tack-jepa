@@ -1,0 +1,5 @@
+# Ablation (H1): withhold FK geometry; raw 22-dim joint vector as one opaque
+# global feature (PRD §7.2)
+run_name: no_fk
+model:
+  variant: no_fk

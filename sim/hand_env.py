@@ -60,6 +60,7 @@ class HandEnv:
         hand_fixed: bool = True,
         object_radius: float = 0.028,
         object_pos: tuple = (0.0, 0.0, 0.33),
+        object_spec: tuple | None = None,  # ("sphere", r) | ("box", (sx, sy, sz))
         show_viewer: bool = False,
     ):
         gs = init_genesis()
@@ -83,9 +84,17 @@ class HandEnv:
                 links_to_keep=TIP_LINKS,
             )
         )
-        self.obj = self.scene.add_entity(
-            gs.morphs.Sphere(radius=object_radius, pos=object_pos)
-        )
+        if object_spec is None:
+            object_spec = ("sphere", object_radius)
+        kind, dims = object_spec
+        if kind == "sphere":
+            obj_morph = gs.morphs.Sphere(radius=float(dims), pos=object_pos)
+        elif kind == "box":
+            obj_morph = gs.morphs.Box(size=tuple(dims), pos=object_pos)
+        else:
+            raise ValueError(f"unknown object kind {kind!r}")
+        self.object_spec = (kind, dims)
+        self.obj = self.scene.add_entity(obj_morph)
         self.scene.build()
 
         self.joint_names = [j.name for j in self.hand.joints]
