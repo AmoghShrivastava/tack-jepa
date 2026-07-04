@@ -11,7 +11,7 @@ Living document tracking the phased build order from [PRD.md](PRD.md) §9.
 | 3 | Graph construction + WebDataset sharding + Stage A/B data generation at small scale | A PyTorch `Dataset`/`DataLoader` yields correctly-shaped graph batches | No | **Done, corrected 2026-07-04** — see "Audit and correction" below. 210 Stage A + 210 Stage B episodes → 140/70 object-disjoint shards each; loader verified on real shards. |
 | 4 | Full model: online + EMA target encoder, predictor, JEPA loss, VICReg, probe heads — tiny-scale training run to confirm the loop works | Loss decreases, no immediate collapse, all §7.2 ablation code paths runnable | Optional, minimal (confirm with user first) | **Done, rerun on corrected pipeline 2026-07-04** — all 5 variants trained on CPU on Stage B data with the floating wrist, horizon curriculum, and bf16-capable loop; zero GPU billed. See "Audit and correction" below. |
 | 5 | **Scale-up decision point** — review Phases 0–4 with the user before provisioning any Nebius training cluster | Explicit human go-ahead | **Yes, from here on** | Not started — hard gate |
-| 6 | Stage B/C data generation at scale + full pretraining incl. all §7.2 ablations | Ablation results reported per §7.6 | Yes | Not started |
+| 6 | Stage B/C data generation at scale + full pretraining incl. all §7.2 ablations | Ablation results reported per §7.6 | Yes | **In progress** (2026-07-04; Nebius L40S provisioned, full-size sweep running — see below) |
 | 7 | Downstream task transfer evaluation (§7.4) | Sample-efficiency numbers reported | Yes | Not started |
 | 8+ | Stretch: soft-body coupling (§5.4), real-data zero-shot validation (§7.5), Stage D | — | Yes | Not started |
 
@@ -205,6 +205,26 @@ corrected Stage B data, CI green.
   genuinely the richer slip signal Stage A was missing. Toy-scale runs remain loop
   validation ONLY; no H1/H2/H3 conclusions may be drawn from them (PRD §7.6) —
   full-size, full-data numbers are a Phase 6 matter.
+
+- **2026-07-04 (Phase 6, provisioning):** User gave explicit go-ahead in-conversation.
+  Provisioned one Nebius L40S AMD (preemptible, `gpu-l40s-d`, 46GB VRAM), not H100 —
+  model is <100M params (§6.3), L40S is ~1/3 H100's cost and plenty for this scale;
+  confirmed via real timing rather than assumption. See nebius/README.md cost log for
+  exact instance ID, price, and deallocation record.
+- **2026-07-04 (Phase 6, real finding):** the full-size model (GATv2 attention over
+  ~2244 taxels x 8-step context) OOMs on this 46GB GPU above micro-batch ~4-5 — well
+  below PRD §6.2's target effective batch of 32-64. This is a genuine architecture-
+  scale cost (graph attention memory), matching a risk PRD §11 itself flagged, not a
+  bug. Fixed via gradient accumulation (`train.micro_batch_size` + `data.batch_size`,
+  training/train.py) rather than silently shrinking the effective batch — reaches
+  effective batch 32 via micro-batch 4 x 8 accumulation steps. Measured throughput:
+  ~5.2s per effective-batch-32 step on the L40S (vs. 60-100s/step at reduced width on
+  CPU) — real speedup, used to size the ablation sweep's step budgets below.
+- **2026-07-04 (Phase 6):** added periodic checkpointing + automatic resume (every
+  `train.checkpoint_every` steps, default 500) before committing to a multi-hour run
+  on a **preemptible** instance (can be stopped by Nebius anytime with 60s warning) —
+  previously training only saved a checkpoint at the very end, so any interruption
+  would have lost all progress.
 
 ## Phase 8+ flagged items (per PRD)
 
