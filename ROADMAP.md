@@ -9,7 +9,7 @@ Living document tracking the phased build order from [PRD.md](PRD.md) §9.
 | 1 | Genesis environment: Allegro-class hand URDF loaded, single object, basic press episode runs headless | A single episode's raw contact-solver output can be dumped to disk and inspected | No (CPU only) | **Done** (2026-07-04; genesis 1.2.1 on Windows CPU, press episode with sustained ball-in-palm contact, dump inspected) |
 | 2 | Taxel layout generation (FPS per link) + taxel force synthesis (§5.3) + FK module, with unit tests | Unit tests pass; taxel force heatmap for one episode looks physically sensible | No | **Done** (2026-07-04; FK matches Genesis to 1e-5, force conservation tested, heatmap in docs/figures/phase2_heatmap.png shows load under the object) |
 | 3 | Graph construction + WebDataset sharding + Stage A data generation at small scale | A PyTorch `Dataset`/`DataLoader` yields correctly-shaped graph batches | No | **Done** (2026-07-04; 210 episodes → 140 train / 70 val object-disjoint shards; loader verified on real shards, ~1.1 s/batch B=4) |
-| 4 | Full model: online + EMA target encoder, predictor, JEPA loss, VICReg, probe heads — tiny-scale training run to confirm the loop works | Loss decreases, no immediate collapse, all §7.2 ablation code paths runnable | Optional, minimal (confirm with user first) | Not started |
+| 4 | Full model: online + EMA target encoder, predictor, JEPA loss, VICReg, probe heads — tiny-scale training run to confirm the loop works | Loss decreases, no immediate collapse, all §7.2 ablation code paths runnable | Optional, minimal (confirm with user first) | **Done** (2026-07-04; all 5 variants trained on CPU — zero GPU billed; loss ↓ in every run; no point-collapse (per-dim std 0.27–0.31); probe/canary/downstream eval harnesses validated end-to-end; curves in docs/figures/phase4_training.png) |
 | 5 | **Scale-up decision point** — review Phases 0–4 with the user before provisioning any Nebius training cluster | Explicit human go-ahead | **Yes, from here on** | Not started — hard gate |
 | 6 | Stage B/C data generation at scale + full pretraining incl. all §7.2 ablations | Ablation results reported per §7.6 | Yes | Not started |
 | 7 | Downstream task transfer evaluation (§7.4) | Sample-efficiency numbers reported | Yes | Not started |
@@ -44,6 +44,25 @@ Living document tracking the phased build order from [PRD.md](PRD.md) §9.
 - **2026-07-04 (Phase 3):** webdataset on Windows: bare `C:\` paths and `file:///C:/`
   URLs both fail (different code paths); scheme-less relative forward-slash paths
   work everywhere (`data.shard_writer.local_wds_url`).
+
+- **2026-07-04 (Phase 4):** CPU validation used a width-reduced overlay
+  (`training/configs/phase4_cpu.yaml`: hidden 96, 3 layers — architecture otherwise
+  identical) after measuring the full-size model at 60–100 s/step on laptop CPU;
+  full-size training is a Phase 6 GPU matter. All five §7.2 variants trained without
+  crashes; prediction loss decreased in every run. Collapse picture (honest): latents
+  are NOT point-collapsed (per-dim std ≈ 0.27–0.31 on val) but share a large common
+  component (pairwise cosine 0.87–0.93 for baseline); VICReg visibly injects variance
+  (canary dips to ~0.55 when the hinge activates), and the no_vicreg run's canary sits
+  at 0.9999999 — the anti-collapse machinery demonstrably matters. Toy-scale runs are
+  loop validation ONLY; no H1/H2/H3 conclusions may be drawn from them (PRD §7.6).
+
+- **2026-07-04 (Phase 4, eval-harness findings for Phase 6 planning):** (a) §7.3 probe
+  eval and §7.4 downstream transfer both run end-to-end, but Stage A data contains
+  almost no slip/slip-onset positives on the val split (3 positives / 432 windows) —
+  meaningful slip metrics need Stage B dynamic-grasp data and slip-aware window
+  sampling in the eval loaders. (b) Toy-encoder probe R² is negative (worse than
+  predicting the mean) — expected at 300 CPU steps; these runs validate plumbing, not
+  representations. (c) Full-size probe/downstream numbers must come from Phase 6 runs.
 
 ## Phase 8+ flagged items (per PRD)
 

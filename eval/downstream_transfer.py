@@ -80,6 +80,8 @@ def eval_slip_onset(
     batch_size: int = 8,
     seed: int = 0,
     device: str = "cpu",
+    train_stride: int = 12,
+    val_episodes: int = 24,
 ) -> dict:
     """One encoder (or raw baseline when run_dir is None) x sample budgets."""
     torch.manual_seed(seed)
@@ -108,8 +110,10 @@ def eval_slip_onset(
             _, glob = raw(ctx_batch, B, N)
         return glob.view(B, N, -1)[:, -1]
 
-    train_eps = _windows(shard_dir, "train", N, H_ONSET, 4, limit_episodes=max(episode_budgets))
-    val_eps = _windows(shard_dir, "val", N, H_ONSET, 8, limit_episodes=24)
+    train_eps = _windows(
+        shard_dir, "train", N, H_ONSET, train_stride, limit_episodes=max(episode_budgets)
+    )
+    val_eps = _windows(shard_dir, "val", N, H_ONSET, 12, limit_episodes=val_episodes)
     val_windows = [w for ep in val_eps for w in ep]
 
     results = {}
