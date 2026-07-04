@@ -275,6 +275,7 @@ def train(cfg: dict) -> dict:
                     force_mag=ctx.force_mag[node_mask],
                     slip=ctx.slip[node_mask],
                     contact_area=ctx.contact_area.view(B, N)[:, -1],
+                    contact_area_scale=layout.n_taxels,
                 )
                 probe_total = sum(probe_losses.values())
                 loss = loss + tr["probe_weight"] * probe_total

@@ -99,3 +99,28 @@ def test_probes():
     for v in losses.values():
         assert torch.isfinite(v)
     sum(losses.values()).backward()  # all differentiable
+
+
+def test_contact_area_scale_normalizes_loss_magnitude():
+    """contact_area's raw-count scale (~2244) must not dominate the other
+    probe losses — the fix for the mid-run spike found during Phase 6."""
+    probes = PhysicsProbes(node_dim=32, global_dim=48, hidden=16)
+    node = torch.randn(70, 32)
+    glob = torch.randn(2, 48)
+    out = probes(node, glob)
+    large_area = torch.tensor([2000.0, 1800.0])  # near the full 2244-taxel scale
+
+    unscaled = PhysicsProbes.losses(
+        out, force_mag=torch.rand(70), slip=torch.zeros(70), contact_area=large_area
+    )
+    scaled = PhysicsProbes.losses(
+        out,
+        force_mag=torch.rand(70),
+        slip=torch.zeros(70),
+        contact_area=large_area,
+        contact_area_scale=2244.0,
+    )
+    # normalizing brings the contact_area term down to a comparable
+    # magnitude to force_mag's, instead of dwarfing it
+    assert scaled["contact_area"] < unscaled["contact_area"]
+    assert scaled["contact_area"] < 10 * scaled["force_mag"]

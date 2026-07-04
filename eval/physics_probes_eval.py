@@ -24,6 +24,7 @@ from data.dataset import make_loader, shard_urls
 from eval.collapse_canary import load_run
 from eval.metrics import binary_metrics, mae, r2
 from models.probes import PhysicsProbes
+from sim.taxel_layout import TaxelLayout
 
 
 def _iter_latents(models, loader, device, max_batches=None):
@@ -61,6 +62,7 @@ def probe_eval(
     torch.manual_seed(seed)
     cfg, models = load_run(run_dir, device)
     m = cfg["model"]
+    n_taxels = TaxelLayout.load().n_taxels
 
     def loader_for(split, stride_mult=1):
         return make_loader(
@@ -83,7 +85,7 @@ def probe_eval(
             if step >= train_steps:
                 break
             out = probes(node, glob)
-            losses = PhysicsProbes.losses(out, **labels)
+            losses = PhysicsProbes.losses(out, **labels, contact_area_scale=n_taxels)
             opt.zero_grad(set_to_none=True)
             sum(losses.values()).backward()
             opt.step()
@@ -104,6 +106,10 @@ def probe_eval(
                 trues[k].append(labels[k].cpu().numpy())
     p = {k: np.concatenate(v) for k, v in preds.items()}
     t = {k: np.concatenate(v) for k, v in trues.items()}
+    # contact_area was trained against a target normalized by n_taxels (see
+    # models/probes.py) — rescale the prediction back to raw taxel-count
+    # units so MAE/R2 below are reported in the same units as the true label
+    p["contact_area"] = p["contact_area"] * n_taxels
 
     report = {
         "run": str(run_dir),

@@ -40,6 +40,7 @@ class PhysicsProbes(nn.Module):
         slip: torch.Tensor,
         contact_area: torch.Tensor,
         slip_pos_weight: float | None = 50.0,
+        contact_area_scale: float = 1.0,
     ) -> dict[str, torch.Tensor]:
         # slip labels are heavily imbalanced in Stage A (static presses slip
         # only in landing transients, ~1e-4 positive rate) — weight positives
@@ -48,10 +49,20 @@ class PhysicsProbes(nn.Module):
             if slip_pos_weight
             else None
         )
+        # contact_area is a raw taxel count (0..n_taxels, ~2244) — a much
+        # larger, higher-variance scale than force_mag/slip, so its MSE can
+        # spike hugely relative to the other probe losses on an unlucky
+        # batch. contact_area_scale (pass layout.n_taxels) normalizes the
+        # target to a ~[0,1] fraction so all three probe losses stay
+        # comparable in magnitude; the head's raw output is unaffected, so
+        # rescale predictions back by the same factor when reporting in
+        # count units (see eval/physics_probes_eval.py).
         return {
             "force_mag": nn.functional.mse_loss(out["force_mag"], force_mag),
             "slip": nn.functional.binary_cross_entropy_with_logits(
                 out["slip_logit"], slip, pos_weight=pw
             ),
-            "contact_area": nn.functional.mse_loss(out["contact_area"], contact_area),
+            "contact_area": nn.functional.mse_loss(
+                out["contact_area"], contact_area / contact_area_scale
+            ),
         }
