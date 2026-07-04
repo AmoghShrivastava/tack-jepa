@@ -22,6 +22,13 @@ dev = [
 # them use pytest.importorskip and simply skip where they're absent.
 sim = [
     "genesis-world==1.2.1",
+    # genesis imports torch but does not declare it (users pick their variant);
+    # local dev uses CPU wheels: pip install torch --index-url https://download.pytorch.org/whl/cpu
+]
+ml = [
+    "torch==2.12.1",
+    "torch_geometric==2.8.0",
+    "webdataset==1.0.2",
 ]
 
 [tool.setuptools]

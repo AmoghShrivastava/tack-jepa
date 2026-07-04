@@ -17,6 +17,15 @@ import numpy as np
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
 ALLEGRO_URDF = ASSETS_DIR / "urdf" / "allegro_hand" / "allegro_hand_right.urdf"
 
+# fingertip links are fixed-jointed; Genesis merges those into their parents by
+# default, which would break per-link contact attribution against the taxel
+# layout (21 links) — keep them as distinct solver links
+TIP_LINKS = ["link_3.0_tip", "link_7.0_tip", "link_11.0_tip", "link_15.0_tip"]
+
+# base rotation Ry(-pi/2) as (w,x,y,z): palm normal (+x in base frame) -> +z,
+# i.e. palm faces up, fingers extend horizontally toward -x
+PALM_UP_QUAT = (0.7071068, 0.0, -0.7071068, 0.0)
+
 _gs_initialized = False
 
 
@@ -47,9 +56,10 @@ class HandEnv:
         self,
         dt: float = 0.01,
         hand_pos: tuple = (0.0, 0.0, 0.25),
+        hand_quat: tuple = PALM_UP_QUAT,
         hand_fixed: bool = True,
-        object_radius: float = 0.025,
-        object_pos: tuple = (0.0, 0.0, 0.45),
+        object_radius: float = 0.028,
+        object_pos: tuple = (0.0, 0.0, 0.33),
         show_viewer: bool = False,
     ):
         gs = init_genesis()
@@ -60,8 +70,18 @@ class HandEnv:
             show_viewer=show_viewer,
         )
         self.plane = self.scene.add_entity(gs.morphs.Plane())
+        # recompute_inertia: several upstream Allegro links carry inertia
+        # tensors violating the A+B>=C triangle inequality; Genesis rebuilds
+        # them from collision geometry + mass instead of rejecting the model
         self.hand = self.scene.add_entity(
-            gs.morphs.URDF(file=str(ALLEGRO_URDF), pos=hand_pos, fixed=hand_fixed)
+            gs.morphs.URDF(
+                file=str(ALLEGRO_URDF),
+                pos=hand_pos,
+                quat=hand_quat,
+                fixed=hand_fixed,
+                recompute_inertia=True,
+                links_to_keep=TIP_LINKS,
+            )
         )
         self.obj = self.scene.add_entity(
             gs.morphs.Sphere(radius=object_radius, pos=object_pos)
@@ -70,6 +90,8 @@ class HandEnv:
 
         self.joint_names = [j.name for j in self.hand.joints]
         self.link_names = [ln.name for ln in self.hand.links]
+        self.link_global_idx = np.array([ln.idx for ln in self.hand.links])
+        self.obj_link_global_idx = np.array([ln.idx for ln in self.obj.links])
         self.n_dofs = self.hand.n_dofs
 
     # ------------------------------------------------------------------ state
@@ -115,14 +137,18 @@ def run_press_episode(
             continue
         jid = int(name.split("_")[1].split(".")[0])
         dof = env.hand.get_joint(name).dofs_idx_local[0]
-        if jid in (0, 4, 8):          # finger abduction
+        if jid in (0, 4, 8):            # finger abduction: keep neutral
             open_pose[dof], close_pose[dof] = 0.0, 0.0
-        elif jid == 12:               # thumb opposition
-            open_pose[dof], close_pose[dof] = 1.0, 1.2
-        elif jid == 13:               # thumb abduction-ish
-            open_pose[dof], close_pose[dof] = 0.3, 0.6
-        else:                         # flexion joints
-            open_pose[dof], close_pose[dof] = 0.4, 1.2
+        elif jid == 12:                 # thumb opposition
+            open_pose[dof], close_pose[dof] = 0.9, 1.3
+        elif jid == 13:                 # thumb abduction
+            open_pose[dof], close_pose[dof] = 0.2, 0.4
+        elif jid in (1, 5, 9, 14):      # proximal flexion: light squeeze only
+            open_pose[dof], close_pose[dof] = 0.2, 0.6
+        elif jid in (2, 6, 10, 15):     # middle flexion
+            open_pose[dof], close_pose[dof] = 0.2, 0.5
+        else:                           # distal flexion (3, 7, 11)
+            open_pose[dof], close_pose[dof] = 0.1, 0.35
 
     records: list[dict] = []
     contact_rows: dict[str, list] = {}
@@ -159,6 +185,9 @@ def run_press_episode(
     dump = {
         "joint_names": np.array(env.joint_names),
         "link_names": np.array(env.link_names),
+        # contacts use GLOBAL solver link indices; these arrays map them back
+        "link_global_idx": env.link_global_idx,
+        "obj_link_global_idx": env.obj_link_global_idx,
         "dt": np.float64(env.dt),
         "qpos": np.stack([r["qpos"] for r in records]),
         "qvel": np.stack([r["qvel"] for r in records]),
