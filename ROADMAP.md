@@ -5,7 +5,7 @@ Living document tracking the phased build order from [PRD.md](PRD.md) §9.
 
 | Phase | Deliverable | Exit criteria | GPU billing? | Status |
 |---|---|---|---|---|
-| 0 | Repo scaffold, `pyproject.toml`, CI skeleton, PRD committed, this file | `pytest` runs (even with zero tests), CI green | No | **In progress** (started 2026-07-04) |
+| 0 | Repo scaffold, `pyproject.toml`, CI skeleton, PRD committed, this file | `pytest` runs (even with zero tests), CI green | No | **Done** (2026-07-04; pytest 6 passing, CI run green) |
 | 1 | Genesis environment: Allegro-class hand URDF loaded, single object, basic press episode runs headless | A single episode's raw contact-solver output can be dumped to disk and inspected | No (CPU only) | Not started |
 | 2 | Taxel layout generation (FPS per link) + taxel force synthesis (§5.3) + FK module, with unit tests | Unit tests pass; taxel force heatmap for one episode looks physically sensible | No | Not started |
 | 3 | Graph construction + WebDataset sharding + Stage A data generation at small scale | A PyTorch `Dataset`/`DataLoader` yields correctly-shaped graph batches | No | Not started |
