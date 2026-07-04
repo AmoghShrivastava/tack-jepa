@@ -29,6 +29,7 @@ from models.predictor import ActionConditionedPredictor
 from models.probes import PhysicsProbes
 from sim.taxel_layout import TaxelLayout
 from training.config import dump_config, load_config
+from training.curriculum import make_horizon_schedule
 from training.ema import ema_momentum, ema_update, make_target
 
 JEPA_VARIANTS = ("baseline", "no_fk", "no_vicreg", "image_native")
@@ -99,6 +100,18 @@ def lr_at(step, cfg_train):
     return base * 0.5 * (1 + math.cos(math.pi * min(frac, 1.0)))
 
 
+_AMP_DTYPES = {"fp32": None, "bf16": torch.bfloat16}
+
+
+def amp_context(device: torch.device, precision: str):
+    """PRD §6.2/§8: bf16 mixed precision (Nebius H100-class GPUs support this
+    natively). No GradScaler needed — bf16's exponent range doesn't require
+    loss scaling the way fp16 does. Works (functionally, not for speed) on
+    CPU too, so the code path is exercised and verified before Phase 6."""
+    dtype = _AMP_DTYPES[precision]
+    return torch.autocast(device_type=device.type, dtype=dtype, enabled=dtype is not None)
+
+
 def train(cfg: dict) -> dict:
     torch.manual_seed(cfg["seed"])
     np.random.seed(cfg["seed"])
@@ -124,15 +137,37 @@ def train(cfg: dict) -> dict:
     urls = shard_urls(cfg["data"]["shard_dir"], "train")
     if not urls:
         raise FileNotFoundError(f"no train shards under {cfg['data']['shard_dir']}")
-    loader = make_loader(
-        urls,
-        batch_size=cfg["data"]["batch_size"],
-        context_len=cfg["data"]["context_len"],
-        horizon=cfg["data"]["horizon"],
-        stride=cfg["data"]["stride"],
-        shuffle=1,
-        seed=cfg["seed"],
-    )
+
+    # Horizon curriculum (PRD §5.7/§6.2): k=1 -> max_horizon as training
+    # stabilizes. Each distinct horizon needs its own loader (windows are
+    # built at a fixed k), so build one per curriculum stage and switch
+    # between them by step according to the schedule.
+    if cfg["data"].get("horizon_curriculum", True):
+        horizon_at, stage_ks = make_horizon_schedule(
+            cfg["train"]["steps"], cfg["predictor"]["max_horizon"]
+        )
+    else:
+        stage_ks = [cfg["data"]["horizon"]]
+        horizon_at = lambda step: stage_ks[0]  # noqa: E731
+
+    def make_iter(k):
+        loader = make_loader(
+            urls,
+            batch_size=cfg["data"]["batch_size"],
+            context_len=cfg["data"]["context_len"],
+            horizon=k,
+            stride=cfg["data"]["stride"],
+            shuffle=1,
+            seed=cfg["seed"],
+        )
+
+        def infinite():
+            while True:
+                yield from loader
+
+        return infinite()
+
+    iters = {k: make_iter(k) for k in stage_ks}
 
     models = build_models(cfg, layout)
     for mod in models.values():
@@ -146,60 +181,63 @@ def train(cfg: dict) -> dict:
     step = 0
     t0 = time.time()
     history: list[dict] = []
+    precision = tr.get("precision", "fp32")
 
-    def infinite_batches():
-        while True:
-            yield from loader
-
-    for batch in infinite_batches():
-        if step >= tr["steps"]:
-            break
-        B, N, k = batch["B"], batch["N"], batch["horizon"]
+    while step < tr["steps"]:
+        k = horizon_at(step)
+        batch = next(iters[k])
+        B, N = batch["B"], batch["N"]
+        assert batch["horizon"] == k
         ctx = batch["context_batch"].to(device)
         tgt = batch["target_batch"].to(device)
         actions = batch["actions"].to(device)
 
-        node_ctx, glob_ctx = encode_batch(models["encoder"], ctx, B, N)
-        ctx_seq = glob_ctx.view(B, N, -1)
-        pred = models["predictor"](ctx_seq, actions, horizon=k)
+        logs: dict[str, float] = {"horizon": k}
+        # Everything through the loss (encode/predict/VICReg/probes) runs
+        # under one autocast context, matching standard AMP usage — mixing
+        # bf16 activations with fp32-only ops outside the context would
+        # otherwise error the moment precision="bf16" is actually used.
+        with amp_context(device, precision):
+            node_ctx, glob_ctx = encode_batch(models["encoder"], ctx, B, N)
+            ctx_seq = glob_ctx.view(B, N, -1)
+            pred = models["predictor"](ctx_seq, actions, horizon=k)
 
-        logs: dict[str, float] = {}
-        if is_jepa:
-            with torch.no_grad():
-                _, glob_tgt = encode_batch(models["target_encoder"], tgt, B, 1)
-            loss_pred = jepa_latent_loss(pred, glob_tgt)
-        else:
-            decoded = models["decoder"](pred)
-            target_force = tgt.force.view(B, layout.n_taxels, 3)
-            loss_pred = RawForceDecoder.loss(decoded, target_force)
-        loss = loss_pred
+            if is_jepa:
+                with torch.no_grad():
+                    _, glob_tgt = encode_batch(models["target_encoder"], tgt, B, 1)
+                loss_pred = jepa_latent_loss(pred, glob_tgt)
+            else:
+                decoded = models["decoder"](pred)
+                target_force = tgt.force.view(B, layout.n_taxels, 3)
+                loss_pred = RawForceDecoder.loss(decoded, target_force)
+            loss = loss_pred
+
+            if tr["vicreg_var_weight"] or tr["vicreg_cov_weight"]:
+                var_l, cov_l = vicreg_regularizer(glob_ctx)
+                loss = loss + tr["vicreg_var_weight"] * var_l + tr["vicreg_cov_weight"] * cov_l
+                logs["vicreg_var"] = float(var_l)
+                logs["vicreg_cov"] = float(cov_l)
+
+            # probes on the LAST context step's latents (detached by default, §5.10)
+            last_idx = (
+                torch.arange(B, device=device) * N + (N - 1)
+            )  # graph ids of last ctx steps
+            node_mask = torch.isin(ctx.batch, last_idx)
+            nl = node_ctx[node_mask]
+            gl = glob_ctx[last_idx]
+            if not tr["probe_grad_to_encoder"]:
+                nl, gl = nl.detach(), gl.detach()
+            probe_out = models["probes"](nl, gl)
+            probe_losses = PhysicsProbes.losses(
+                probe_out,
+                force_mag=ctx.force_mag[node_mask],
+                slip=ctx.slip[node_mask],
+                contact_area=ctx.contact_area.view(B, N)[:, -1],
+            )
+            probe_total = sum(probe_losses.values())
+            loss = loss + tr["probe_weight"] * probe_total
+
         logs["loss_pred"] = float(loss_pred.detach())
-
-        if tr["vicreg_var_weight"] or tr["vicreg_cov_weight"]:
-            var_l, cov_l = vicreg_regularizer(glob_ctx)
-            loss = loss + tr["vicreg_var_weight"] * var_l + tr["vicreg_cov_weight"] * cov_l
-            logs["vicreg_var"] = float(var_l)
-            logs["vicreg_cov"] = float(cov_l)
-
-        # probes on the LAST context step's latents (detached by default, §5.10)
-        last_idx = (
-            torch.arange(B, device=device) * N + (N - 1)
-        )  # graph ids of last ctx steps
-        node_mask = torch.isin(ctx.batch, last_idx)
-        nl = node_ctx[node_mask]
-        gl = glob_ctx[last_idx]
-        if not tr["probe_grad_to_encoder"]:
-            nl, gl = nl.detach(), gl.detach()
-        # relabel node->graph ids to 0..B-1 for the area head
-        probe_out = models["probes"](nl, gl)
-        probe_losses = PhysicsProbes.losses(
-            probe_out,
-            force_mag=ctx.force_mag[node_mask],
-            slip=ctx.slip[node_mask],
-            contact_area=ctx.contact_area.view(B, N)[:, -1],
-        )
-        probe_total = sum(probe_losses.values())
-        loss = loss + tr["probe_weight"] * probe_total
         logs.update({f"probe_{k_}": float(v) for k_, v in probe_losses.items()})
 
         opt.zero_grad(set_to_none=True)

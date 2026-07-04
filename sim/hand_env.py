@@ -1,8 +1,14 @@
 """Genesis scene: Allegro hand + object, headless episode rollout (PRD §5.1-5.2).
 
-Phase 1 scope: load the hand URDF, drop a ball into the half-closed fingers,
-close them (a press episode), and record raw contact-solver output per step.
-Run as a script to dump one episode:
+The hand has a genuine free-floating 6-DoF wrist (Genesis `FREE` joint) by
+default, matching PRD §5.2's "wrist modeled as a free 6-DoF floating base"
+and its 22-DoF action space (16 finger + 6 wrist). Verified empirically
+(2026-07-04): `fixed=False` gives dofs [0:3]=wrist position (world xyz),
+[3:6]=wrist orientation as a rotation vector (axis-angle; e.g. (0,-pi/2,0) is
+the palm-up pose used throughout this codebase), [6:22]=finger joints. The
+free joint's PD gains default to zero and must be set explicitly.
+
+Run as a script to dump one (legacy, fixed-base) smoke episode:
 
     python -m sim.hand_env --out episodes/phase1_smoke.npz
 """
@@ -25,6 +31,19 @@ TIP_LINKS = ["link_3.0_tip", "link_7.0_tip", "link_11.0_tip", "link_15.0_tip"]
 # base rotation Ry(-pi/2) as (w,x,y,z): palm normal (+x in base frame) -> +z,
 # i.e. palm faces up, fingers extend horizontally toward -x
 PALM_UP_QUAT = (0.7071068, 0.0, -0.7071068, 0.0)
+PALM_UP_ROTVEC = (0.0, -np.pi / 2, 0.0)  # same rotation, Genesis free-joint dof form
+
+# Genesis's native free-joint dof layout for a floating hand (n_dofs=22)
+WRIST_POS = slice(0, 3)
+WRIST_ROT = slice(3, 6)
+FINGERS = slice(6, 22)
+
+# PD gains for the free-joint wrist dofs (Genesis defaults these to 0 — a
+# floating base otherwise free-falls under gravity). Tuned empirically:
+# converges within ~50 steps at dt=0.01, no oscillation, ~5-10mm steady-state
+# gravity sag (acceptable next to ~5cm object scale).
+WRIST_KP = 1500.0
+WRIST_KV = 100.0
 
 _gs_initialized = False
 
@@ -49,6 +68,25 @@ def _to_numpy(x) -> np.ndarray:
     return np.asarray(x)
 
 
+def genesis_to_prd_order(vec: np.ndarray) -> np.ndarray:
+    """(...,22) Genesis dof order [wrist_pos3, wrist_rot3, finger16] ->
+    PRD §5.2 order [finger16, wrist_pos3, wrist_rot3]."""
+    out = np.empty_like(vec)
+    out[..., 0:16] = vec[..., FINGERS]
+    out[..., 16:19] = vec[..., WRIST_POS]
+    out[..., 19:22] = vec[..., WRIST_ROT]
+    return out
+
+
+def prd_to_genesis_order(vec: np.ndarray) -> np.ndarray:
+    """Inverse of genesis_to_prd_order."""
+    out = np.empty_like(vec)
+    out[..., FINGERS] = vec[..., 0:16]
+    out[..., WRIST_POS] = vec[..., 16:19]
+    out[..., WRIST_ROT] = vec[..., 19:22]
+    return out
+
+
 class HandEnv:
     """Headless Genesis scene with an Allegro hand and a single object."""
 
@@ -57,15 +95,19 @@ class HandEnv:
         dt: float = 0.01,
         hand_pos: tuple = (0.0, 0.0, 0.25),
         hand_quat: tuple = PALM_UP_QUAT,
-        hand_fixed: bool = True,
+        hand_fixed: bool = False,
         object_radius: float = 0.028,
-        object_pos: tuple = (0.0, 0.0, 0.33),
+        object_pos: tuple = (0.0, 0.0, 0.0),
         object_spec: tuple | None = None,  # ("sphere", r) | ("box", (sx, sy, sz))
+        object_fixed: bool = False,
+        wrist_kp: float = WRIST_KP,
+        wrist_kv: float = WRIST_KV,
         show_viewer: bool = False,
     ):
         gs = init_genesis()
         self.gs = gs
         self.dt = dt
+        self.hand_fixed = hand_fixed
         self.scene = gs.Scene(
             sim_options=gs.options.SimOptions(dt=dt),
             show_viewer=show_viewer,
@@ -88,20 +130,37 @@ class HandEnv:
             object_spec = ("sphere", object_radius)
         kind, dims = object_spec
         if kind == "sphere":
-            obj_morph = gs.morphs.Sphere(radius=float(dims), pos=object_pos)
+            obj_morph = gs.morphs.Sphere(radius=float(dims), pos=object_pos, fixed=object_fixed)
         elif kind == "box":
-            obj_morph = gs.morphs.Box(size=tuple(dims), pos=object_pos)
+            obj_morph = gs.morphs.Box(size=tuple(dims), pos=object_pos, fixed=object_fixed)
         else:
             raise ValueError(f"unknown object kind {kind!r}")
         self.object_spec = (kind, dims)
+        self.object_fixed = object_fixed
         self.obj = self.scene.add_entity(obj_morph)
         self.scene.build()
 
-        self.joint_names = [j.name for j in self.hand.joints]
+        self.joint_names = [j.name for j in self.hand.joints if j.type.name != "FREE"]
         self.link_names = [ln.name for ln in self.hand.links]
         self.link_global_idx = np.array([ln.idx for ln in self.hand.links])
         self.obj_link_global_idx = np.array([ln.idx for ln in self.obj.links])
         self.n_dofs = self.hand.n_dofs
+
+        if not hand_fixed:
+            kp = _to_numpy(self.hand.get_dofs_kp()).copy()
+            kv = _to_numpy(self.hand.get_dofs_kv()).copy()
+            kp[WRIST_POS] = wrist_kp
+            kp[WRIST_ROT] = wrist_kp
+            kv[WRIST_POS] = wrist_kv
+            kv[WRIST_ROT] = wrist_kv
+            self.hand.set_dofs_kp(kp)
+            self.hand.set_dofs_kv(kv)
+            # start the wrist actually holding its spawn pose, not sagging
+            # under gravity for the first several steps before control kicks in
+            init_target = np.zeros(self.n_dofs, dtype=np.float32)
+            init_target[WRIST_POS] = hand_pos
+            init_target[WRIST_ROT] = PALM_UP_ROTVEC if hand_quat == PALM_UP_QUAT else (0, 0, 0)
+            self.hand.set_dofs_position(init_target, zero_velocity=True)
 
     # ------------------------------------------------------------------ state
     def get_state(self) -> dict:
@@ -127,37 +186,44 @@ class HandEnv:
         self.scene.step()
 
 
+def finger_dof_indices(env: HandEnv) -> dict[str, int]:
+    """joint name -> dofs_idx_local, robust to fixed vs floating base offset."""
+    return {name: env.hand.get_joint(name).dofs_idx_local[0] for name in env.joint_names}
+
+
 def run_press_episode(
     out_path: Path,
     n_settle: int = 60,
     n_close: int = 150,
     n_hold: int = 90,
 ) -> dict:
-    """Drop a ball into half-open fingers, close them, hold. Record everything."""
-    env = HandEnv()
+    """Legacy Phase-1 smoke episode: fixed-base hand, ball drop, finger close.
 
-    # Half-open "basket" start pose; close toward a grasp. Joint order comes
-    # from the entity itself; finger flexion joints get the curl, abduction
-    # joints (0, 4, 8) stay near zero, thumb opposition (12) stays engaged.
+    Kept fixed-base deliberately — this is the original Phase 1 exit-criterion
+    artifact (raw contact dump inspectable) and doesn't need wrist dynamics;
+    Stage A/B generation (sim/episode_generator.py) is where the floating
+    wrist is actually exercised.
+    """
+    env = HandEnv(hand_fixed=True, hand_pos=(0.0, 0.0, 0.25), object_pos=(0.0, 0.0, 0.33))
+
     open_pose = np.zeros(env.n_dofs, dtype=np.float32)
     close_pose = np.zeros(env.n_dofs, dtype=np.float32)
+    dof = finger_dof_indices(env)
     for name in env.joint_names:
-        if not name.startswith("joint_"):
-            continue
         jid = int(name.split("_")[1].split(".")[0])
-        dof = env.hand.get_joint(name).dofs_idx_local[0]
+        d = dof[name]
         if jid in (0, 4, 8):            # finger abduction: keep neutral
-            open_pose[dof], close_pose[dof] = 0.0, 0.0
+            open_pose[d], close_pose[d] = 0.0, 0.0
         elif jid == 12:                 # thumb opposition
-            open_pose[dof], close_pose[dof] = 0.9, 1.3
+            open_pose[d], close_pose[d] = 0.9, 1.3
         elif jid == 13:                 # thumb abduction
-            open_pose[dof], close_pose[dof] = 0.2, 0.4
+            open_pose[d], close_pose[d] = 0.2, 0.4
         elif jid in (1, 5, 9, 14):      # proximal flexion: light squeeze only
-            open_pose[dof], close_pose[dof] = 0.2, 0.6
+            open_pose[d], close_pose[d] = 0.2, 0.6
         elif jid in (2, 6, 10, 15):     # middle flexion
-            open_pose[dof], close_pose[dof] = 0.2, 0.5
+            open_pose[d], close_pose[d] = 0.2, 0.5
         else:                           # distal flexion (3, 7, 11)
-            open_pose[dof], close_pose[dof] = 0.1, 0.35
+            open_pose[d], close_pose[d] = 0.1, 0.35
 
     records: list[dict] = []
     contact_rows: dict[str, list] = {}

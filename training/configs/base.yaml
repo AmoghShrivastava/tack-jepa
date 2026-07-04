@@ -4,11 +4,12 @@ seed: 0
 out_dir: runs
 
 data:
-  shard_dir: datasets/shards
+  shard_dir: datasets/shards_b   # Stage B: real dynamics + slip (see ROADMAP)
   context_len: 8
-  horizon: 1          # curriculum: raise toward 8 as training stabilizes (§6.2)
+  horizon: 1          # only used when horizon_curriculum is false
+  horizon_curriculum: true  # k=1->2->4->8 as training stabilizes (§5.7/§6.2)
   stride: 4
-  batch_size: 8
+  batch_size: 32      # PRD §6.2: "start small (32-64 sequences)"
   num_workers: 0
 
 model:
@@ -28,6 +29,7 @@ predictor:
 
 train:
   steps: 300
+  precision: fp32     # bf16 on Nebius H100-class GPUs (§6.2/§8); set at launch
   lr: 3.0e-4
   weight_decay: 0.05
   warmup_steps: 50

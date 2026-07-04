@@ -14,6 +14,10 @@ requires explicit user confirmation first.
 - Data generation (Genesis sim) is CPU-bound: run it on a CPU-only instance, never
   on GPU-billed time (PRD §6.4).
 - Keep a cost log in this file: date, instance type, duration, purpose, cost.
+- Use `docker/sim.Dockerfile` on the CPU instance and `docker/train.Dockerfile` on
+  the GPU instance (PRD §8) — reconcile the GPU image's CUDA tag / torch index
+  against the actual VM's driver via `nvidia-smi` before building; don't trust the
+  tag committed in the file (SKUs and CUDA versions change, see PRD §11).
 
 ## Cost log
 

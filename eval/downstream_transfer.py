@@ -3,9 +3,10 @@
 Tasks:
   slip_onset      — from the latent at t, predict slip occurring at t+H that is
                     NOT yet present at t (exercises the predictive property).
-                    Uses existing Stage A shards.
+                    Uses Stage B shards (real dynamic grasping; Stage A is a
+                    static press and has almost no slip — see ROADMAP.md).
   grasp_stability — will the grasp survive an object nudge? Needs perturbation
-                    episodes from `python -m sim.episode_generator --mode perturb`.
+                    episodes from `python -m sim.episode_generator --stage b --perturb`.
 
 Encoders compared (§7.4): a pretrained frozen encoder (any run dir), the
 image-native ablation's frozen encoder, and a no-pretraining baseline (same
@@ -74,7 +75,7 @@ def _slip_onset_label(sample) -> float:
 
 def eval_slip_onset(
     run_dir: Path | None,
-    shard_dir: str = "datasets/shards",
+    shard_dir: str = "datasets/shards_b",
     episode_budgets: tuple = (8, 16, 32),
     train_steps_per_budget: int = 120,
     batch_size: int = 8,

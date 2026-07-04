@@ -2,7 +2,9 @@
 
 If these agree at random joint configurations, taxel world positions computed
 offline from logged joint states are exactly what the simulator saw — the
-'geometry is arithmetic, not inference' claim made checkable.
+'geometry is arithmetic, not inference' claim made checkable. Now exercised
+under a genuinely moving floating wrist (not just a fixed constant base),
+since HandEnv defaults to a free 6-DoF wrist (PRD §5.2).
 
 Requires genesis (skipped in CI); reuses one scene for all configs.
 """
@@ -13,7 +15,7 @@ import pytest
 pytest.importorskip("genesis")
 
 from sim.forward_kinematics import KinematicChain, quat_to_matrix  # noqa: E402
-from sim.hand_env import ALLEGRO_URDF, PALM_UP_QUAT, HandEnv  # noqa: E402
+from sim.hand_env import ALLEGRO_URDF, WRIST_POS, WRIST_ROT, HandEnv  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -39,15 +41,21 @@ def test_link_poses_match_genesis(env, chain):
         qpos = np.zeros(env.n_dofs)
         for d, v in zip(dof_idx, q, strict=True):
             qpos[d] = v
+        # also randomize the floating wrist itself (position + rotvec) — this
+        # is real, controllable state now, not a fixed constant
+        qpos[WRIST_POS] = rng.uniform(-0.05, 0.05, size=3) + [0.0, 0.0, 0.25]
+        qpos[WRIST_ROT] = rng.uniform(-0.4, 0.4, size=3) + [0.0, -np.pi / 2, 0.0]
         env.hand.set_dofs_position(qpos, zero_velocity=True)
 
         gs_pos = np.asarray(env.hand.get_links_pos())
         gs_quat = np.asarray(env.hand.get_links_quat())
+        base_pos = np.asarray(env.hand.get_pos())
+        base_quat = np.asarray(env.hand.get_quat())
 
         ours = chain.fk(
             dict(zip(env.joint_names, q, strict=True)),
-            base_pos=(0.0, 0.0, 0.25),
-            base_quat=PALM_UP_QUAT,
+            base_pos=base_pos,
+            base_quat=base_quat,
         )
         for li, name in enumerate(env.link_names):
             if name not in ours:

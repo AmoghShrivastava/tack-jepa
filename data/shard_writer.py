@@ -98,14 +98,6 @@ def process_episode(path: Path, layout: TaxelLayout) -> dict[str, np.ndarray]:
     dump = load_episode(path)
     data = synthesize_episode(dump, layout)
     force_mag = data.magnitude
-    S = force_mag.shape[0]
-    qpos22 = np.zeros((S, 22), dtype=np.float32)
-    qpos22[:, :16] = dump["qpos"][:, :16]
-    qpos22[:, 16:19] = (0.0, 0.0, 0.25)
-    qpos22[:, 19:22] = (0.0, -np.pi / 2, 0.0)
-    from sim.episode_processing import link_poses_layout_order
-
-    link_pos, _ = link_poses_layout_order(dump, layout)
     perm, _ = _layout_order_maps(dump, layout)
     return {
         "f_normal": data.f_normal.astype(np.float16),
@@ -114,7 +106,10 @@ def process_episode(path: Path, layout: TaxelLayout) -> dict[str, np.ndarray]:
         "slip": slip_labels(dump, layout, force_mag),
         "link_pos": dump["link_pos"][:, perm].astype(np.float32),
         "link_quat": dump["link_quat"][:, perm].astype(np.float32),
-        "qpos22": qpos22,
+        # qpos22/action22 already in PRD S5.2 order [finger16, wrist_pos3,
+        # wrist_rotvec3] — built by the episode generator from Genesis's
+        # native (wrist-first) dof layout via genesis_to_prd_order().
+        "qpos22": dump["qpos22"].astype(np.float32),
         "action22": dump["action22"].astype(np.float32),
         "obj_pos": dump["obj_pos"].astype(np.float32),
     }
@@ -163,8 +158,8 @@ def write_shards(
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--episodes", type=Path, default=Path("datasets/stage_a"))
-    parser.add_argument("--out", type=Path, default=Path("datasets/shards"))
+    parser.add_argument("--episodes", type=Path, required=True, help="e.g. datasets/stage_a")
+    parser.add_argument("--out", type=Path, required=True, help="e.g. datasets/shards_a")
     parser.add_argument("--shard-size", type=int, default=32)
     args = parser.parse_args()
     write_shards(args.episodes, args.out, args.shard_size)

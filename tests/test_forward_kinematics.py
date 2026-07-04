@@ -12,6 +12,7 @@ from sim.forward_kinematics import (
     axis_angle_to_matrix,
     matrix_to_quat,
     quat_to_matrix,
+    rotvec_to_quat,
     rpy_to_matrix,
 )
 from sim.hand_env import ALLEGRO_URDF
@@ -53,6 +54,20 @@ def test_rotation_utils_roundtrip():
         assert np.isclose(np.linalg.det(R), 1.0)
         # quat roundtrip
         assert np.allclose(quat_to_matrix(matrix_to_quat(R)), R, atol=1e-12)
+
+
+def test_rotvec_to_quat_matches_genesis_convention():
+    # verified empirically against Genesis's free-joint dof space (2026-07-04):
+    # rotvec (0, -pi/2, 0) is the palm-up pose used throughout this codebase
+    q = rotvec_to_quat([0.0, -np.pi / 2, 0.0])
+    assert np.allclose(q, [0.7071068, 0.0, -0.7071068, 0.0], atol=1e-6)
+    assert np.allclose(rotvec_to_quat([0.0, 0.0, 0.0]), [1.0, 0.0, 0.0, 0.0])
+    # roundtrip through the rotation matrix for random vectors
+    rng = np.random.default_rng(4)
+    for _ in range(10):
+        rv = rng.uniform(-np.pi, np.pi, size=3)
+        R_direct = axis_angle_to_matrix(rv / np.linalg.norm(rv), np.linalg.norm(rv))
+        assert np.allclose(quat_to_matrix(rotvec_to_quat(rv)), R_direct, atol=1e-10)
 
 
 def test_rpy_convention():

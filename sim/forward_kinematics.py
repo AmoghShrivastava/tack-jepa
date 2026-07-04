@@ -30,6 +30,21 @@ def rpy_to_matrix(rpy) -> np.ndarray:
     return rz @ ry @ rx
 
 
+def rotvec_to_quat(rotvec) -> np.ndarray:
+    """Rotation vector (axis-angle, magnitude = angle) -> quaternion (w,x,y,z).
+
+    Genesis's floating-base free joint represents wrist orientation this way
+    (verified empirically 2026-07-04) — this is the inverse of the mapping a
+    caller needs when going from a commanded/logged rotvec to a quaternion
+    for FK's base_quat argument.
+    """
+    rotvec = np.asarray(rotvec, dtype=np.float64)
+    angle = np.linalg.norm(rotvec)
+    if angle < 1e-12:
+        return np.array([1.0, 0.0, 0.0, 0.0])
+    return matrix_to_quat(axis_angle_to_matrix(rotvec / angle, angle))
+
+
 def axis_angle_to_matrix(axis, angle: float) -> np.ndarray:
     axis = np.asarray(axis, dtype=np.float64)
     axis = axis / np.linalg.norm(axis)

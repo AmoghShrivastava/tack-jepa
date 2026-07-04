@@ -15,8 +15,8 @@ wds = pytest.importorskip("webdataset")
 
 from data.dataset import make_loader, shard_urls  # noqa: E402
 from data.shard_writer import local_wds_url  # noqa: E402
-from sim.forward_kinematics import KinematicChain  # noqa: E402
-from sim.hand_env import ALLEGRO_URDF, PALM_UP_QUAT  # noqa: E402
+from sim.forward_kinematics import KinematicChain, rotvec_to_quat  # noqa: E402
+from sim.hand_env import ALLEGRO_URDF, PALM_UP_ROTVEC  # noqa: E402
 from sim.taxel_layout import TaxelLayout  # noqa: E402
 
 S = 24  # steps per synthetic episode
@@ -29,18 +29,30 @@ def synthetic_episode(layout: TaxelLayout, seed: int) -> dict:
     T = layout.n_taxels
     q0 = rng.uniform(0.0, 0.3, size=16)
     dq = rng.uniform(-0.01, 0.03, size=16)
+    # a genuinely moving floating wrist (PRD §5.2) — not a fixed constant —
+    # so the graph/world-frame pipeline is tested under real base motion
+    wrist_pos0 = np.array([0.0, 0.0, 0.25])
+    wrist_dpos = rng.uniform(-0.002, 0.002, size=3)
+    wrist_rot0 = np.array(PALM_UP_ROTVEC)
+    wrist_drot = rng.uniform(-0.01, 0.01, size=3)
     link_pos = np.zeros((S, len(layout.link_names), 3), dtype=np.float32)
     link_quat = np.zeros((S, len(layout.link_names), 4), dtype=np.float32)
     qpos22 = np.zeros((S, 22), dtype=np.float32)
     action22 = np.zeros((S, 22), dtype=np.float32)
     for s in range(S):
         q = q0 + s * dq
-        poses = chain.fk(q, base_pos=(0, 0, 0.25), base_quat=PALM_UP_QUAT)
+        wrist_pos = wrist_pos0 + s * wrist_dpos
+        wrist_rot = wrist_rot0 + s * wrist_drot
+        poses = chain.fk(q, base_pos=wrist_pos, base_quat=rotvec_to_quat(wrist_rot))
         for li, ln in enumerate(layout.link_names):
             link_pos[s, li] = poses[ln].pos
             link_quat[s, li] = poses[ln].quat
         qpos22[s, :16] = q
+        qpos22[s, 16:19] = wrist_pos
+        qpos22[s, 19:22] = wrist_rot
         action22[s, :16] = q + dq
+        action22[s, 16:19] = wrist_pos0 + (s + 1) * wrist_dpos
+        action22[s, 19:22] = wrist_rot0 + (s + 1) * wrist_drot
     f_normal = rng.exponential(0.05, size=(S, T)).astype(np.float16)
     f_shear = rng.normal(0, 0.02, size=(S, T, 2)).astype(np.float16)
     force_mag = np.sqrt(
