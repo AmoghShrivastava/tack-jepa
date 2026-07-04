@@ -55,7 +55,7 @@ class TaxelSequenceDataset(IterableDataset):
             else str(shard_pattern)
         )
         self.pipeline = wds.WebDataset(
-            urls, shardshuffle=bool(shuffle), seed=seed, empty_check=False
+            urls, shardshuffle=shuffle if shuffle else False, seed=seed, empty_check=False
         )
         self.shuffle = shuffle
 
@@ -72,11 +72,13 @@ class TaxelSequenceDataset(IterableDataset):
             slip=ep["slip"][s].astype(np.float64),
         )
         t = torch.as_tensor
+        # NB: named link_id, not link_index — PyG's Batch increments any
+        # attribute containing 'index' by num_nodes per graph when collating
         return Data(
             pos=t(g.pos),
             normal=t(g.normal),
             force=t(g.force),
-            link_index=t(g.link_index),
+            link_id=t(g.link_index),
             edge_index=t(g.edge_index),
             qpos=t(g.qpos).unsqueeze(0),          # (1, 22) per graph
             force_mag=t(g.force_mag),
@@ -104,6 +106,8 @@ class TaxelSequenceDataset(IterableDataset):
                         ep["action22"][s0 : s0 + N + k], dtype=torch.float32
                     ),
                     "horizon": k,
+                    "episode": sample.get("__key__", ""),
+                    "t0": s0,
                 }
 
 

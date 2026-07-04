@@ -33,6 +33,7 @@ VARIANTS: list[tuple] = [
 ]
 
 N_SETTLE, N_CLOSE, N_HOLD = 40, 120, 60
+N_PERTURB = 60  # post-nudge steps for grasp-stability labeling (§7.4)
 BASE_POS = (0.0, 0.0, 0.25)
 
 
@@ -113,7 +114,13 @@ def contact_tangential_speeds(
     return out
 
 
-def rollout_press_episode(env: HandEnv, rng: np.random.Generator, drop_pos, close_scale):
+def rollout_press_episode(
+    env: HandEnv,
+    rng: np.random.Generator,
+    drop_pos,
+    close_scale,
+    perturb: bool = False,
+):
     env.scene.reset()
     env.obj.set_pos(drop_pos)
     if env.object_spec[0] == "box":
@@ -167,6 +174,26 @@ def rollout_press_episode(env: HandEnv, rng: np.random.Generator, drop_pos, clos
         record(t, close_pose)
         t += 1
 
+    stable = None
+    perturb_step = None
+    if perturb:
+        # nudge: horizontal velocity kick to the held object (PRD §7.4 grasp
+        # stability ground truth), then observe whether the grasp survives
+        perturb_step = t
+        kick_dir = rng.uniform(0, 2 * np.pi)
+        speed = rng.uniform(0.15, 0.5)
+        vel = np.zeros(env.obj.n_dofs, dtype=np.float32)
+        vel[0], vel[1] = speed * np.cos(kick_dir), speed * np.sin(kick_dir)
+        vel[2] = rng.uniform(0.0, 0.15)
+        env.obj.set_dofs_velocity(vel)
+        for _ in range(N_PERTURB):
+            env.step(close_pose)
+            record(t, close_pose)
+            t += 1
+        end = steps[-1]["obj_pos"]
+        horiz = float(np.linalg.norm(end[:2] - np.asarray(BASE_POS[:2])))
+        stable = bool(end[2] > 0.15 and horiz < 0.15)
+
     dump = {
         "joint_names": np.array(env.joint_names),
         "link_names": np.array(env.link_names),
@@ -182,10 +209,18 @@ def rollout_press_episode(env: HandEnv, rng: np.random.Generator, drop_pos, clos
         dump[key] = np.stack([s[key] for s in steps])
     for k, v in contact_rows.items():
         dump[f"contact_{k}"] = np.concatenate(v, axis=0)
+    if perturb:
+        dump["stable"] = np.uint8(stable)
+        dump["perturb_step"] = np.int64(perturb_step)
     return dump
 
 
-def generate_stage_a(out_dir: Path, per_variant: int, seed: int = 0, base_action_dim: int = 22):
+def generate_stage_a(
+    out_dir: Path,
+    per_variant: int,
+    seed: int = 0,
+    perturb: bool = False,
+):
     out_dir.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(seed)
     manifest = []
@@ -196,7 +231,7 @@ def generate_stage_a(out_dir: Path, per_variant: int, seed: int = 0, base_action
                 [rng.uniform(-0.02, 0.03), rng.uniform(-0.02, 0.02), rng.uniform(0.32, 0.35)]
             )
             close_scale = rng.uniform(0.75, 1.25)
-            dump = rollout_press_episode(env, rng, drop, close_scale)
+            dump = rollout_press_episode(env, rng, drop, close_scale, perturb=perturb)
             # store the 22-dim action/state convention alongside raw arrays
             dump["action22"] = np.concatenate(
                 [
@@ -209,10 +244,12 @@ def generate_stage_a(out_dir: Path, per_variant: int, seed: int = 0, base_action
             np.savez_compressed(out_dir / f"{name}.npz", **dump)
             n_contact_steps = np.unique(dump["contact_step"]).size
             manifest.append((name, spec, n_contact_steps))
+            extra = f" stable={bool(dump['stable'])}" if perturb else ""
             print(
                 f"{name}: {spec} steps={dump['qpos'].shape[0]} "
                 f"contact_steps={n_contact_steps} "
                 f"max_tan_speed={dump.get('contact_tangential_speed', np.zeros(1)).max():.4f}"
+                f"{extra}"
             )
     with open(out_dir / "manifest.txt", "w") as f:
         for row in manifest:
@@ -224,8 +261,12 @@ def main():
     parser.add_argument("--out", type=Path, default=Path("datasets/stage_a"))
     parser.add_argument("--per-variant", type=int, default=35)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--mode", choices=["press", "perturb"], default="press",
+        help="perturb adds an object nudge + grasp-stability label (§7.4)",
+    )
     args = parser.parse_args()
-    generate_stage_a(args.out, args.per_variant, args.seed)
+    generate_stage_a(args.out, args.per_variant, args.seed, perturb=args.mode == "perturb")
 
 
 if __name__ == "__main__":

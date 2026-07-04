@@ -8,10 +8,13 @@ version = "0.1.0"
 description = "TacK-JEPA: force-native, kinematically-grounded, action-conditioned tactile world model for articulated multi-taxel hands"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
-# Runtime dependencies are added (and pinned exactly) at the start of the phase
-# that first needs them — see ROADMAP.md. Phase 1 adds genesis-world; Phase 3+
-# adds torch / torch_geometric / webdataset; Phase 4+ adds wandb.
-dependencies = []
+# Core numeric deps needed by sim/data/eval modules (and their CI tests).
+# Heavier stacks live in extras below and are added per phase — see ROADMAP.md.
+dependencies = [
+    "numpy==2.2.6",
+    "scipy==1.15.3",
+    "pyyaml==6.0.3",
+]
 
 [project.optional-dependencies]
 dev = [

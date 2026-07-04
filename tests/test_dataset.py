@@ -96,6 +96,8 @@ def test_loader_yields_correct_batches(shard_dir):
         # edges reference valid node ids and grow with batching
         assert ctx.edge_index.max() < B * N * T
         assert ctx.edge_index.shape[0] == 2
+        # link ids must NOT be incremented by PyG batching (embedding input)
+        assert ctx.link_id.max() < 21
         # probe labels ride along on each graph
         assert ctx.force_mag.shape == (B * N * T,)
         assert ctx.slip.shape == (B * N * T,)

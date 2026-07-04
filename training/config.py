@@ -47,7 +47,7 @@ def apply_dotted_overrides(cfg: dict, overrides: list[str]) -> dict:
 
 def load_config(variant: str | None = None, overrides: list[str] | None = None) -> dict:
     cfg = yaml.safe_load((CONFIG_DIR / "base.yaml").read_text())
-    if variant:
+    if variant and variant != "baseline":  # base.yaml IS the baseline
         vpath = CONFIG_DIR / f"{variant}.yaml"
         cfg = deep_merge(cfg, yaml.safe_load(vpath.read_text()) or {})
     if overrides:

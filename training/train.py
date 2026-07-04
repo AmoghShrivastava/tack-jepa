@@ -80,7 +80,7 @@ def build_models(cfg: dict, layout: TaxelLayout) -> dict[str, torch.nn.Module]:
 def encode_batch(encoder, batch, B, N):
     node, glob = encoder(
         force=batch.force,
-        link_index=batch.link_index,
+        link_index=batch.link_id,
         edge_index=batch.edge_index,
         batch=batch.batch,
         pos=batch.pos,
@@ -173,7 +173,7 @@ def train(cfg: dict) -> dict:
             target_force = tgt.force.view(B, layout.n_taxels, 3)
             loss_pred = RawForceDecoder.loss(decoded, target_force)
         loss = loss_pred
-        logs["loss_pred"] = float(loss_pred)
+        logs["loss_pred"] = float(loss_pred.detach())
 
         if tr["vicreg_var_weight"] or tr["vicreg_cov_weight"]:
             var_l, cov_l = vicreg_regularizer(glob_ctx)
@@ -214,8 +214,11 @@ def train(cfg: dict) -> dict:
             ema_update(models["target_encoder"], models["encoder"], m)
             logs["ema_momentum"] = m
 
-        logs["loss_total"] = float(loss)
-        logs["canary_cosine"] = collapse_canary(glob_ctx.detach())
+        logs["loss_total"] = float(loss.detach())
+        # canary across DIFFERENT windows (last ctx step of each sample) —
+        # within-window steps of a static press are near-identical by nature
+        # and would mask collapse detection
+        logs["canary_cosine"] = collapse_canary(glob_ctx[last_idx].detach())
         logs["lr"] = opt.param_groups[0]["lr"]
         logs["step"] = step
         history.append(logs)
