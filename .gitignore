@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+
+# Experiment tracking / runs
+wandb/
+runs/
+outputs/
+
+# Generated data (episode dumps, WebDataset shards) — never commit datasets
+shards/
+episodes/
+*.tar
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

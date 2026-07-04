@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tack-jepa"
+version = "0.1.0"
+description = "TacK-JEPA: force-native, kinematically-grounded, action-conditioned tactile world model for articulated multi-taxel hands"
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+# Runtime dependencies are added (and pinned exactly) at the start of the phase
+# that first needs them — see ROADMAP.md. Phase 1 adds genesis-world; Phase 3+
+# adds torch / torch_geometric / webdataset; Phase 4+ adds wandb.
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest==9.1.1",
+    "ruff==0.15.20",
+]
+
+[tool.setuptools]
+packages = ["sim", "data", "models", "models.ablations", "training", "eval"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
