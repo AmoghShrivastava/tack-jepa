@@ -18,6 +18,11 @@ dev = [
     "pytest==9.1.1",
     "ruff==0.15.20",
 ]
+# Heavy stacks live in extras so CI (dev-only) stays fast; tests that need
+# them use pytest.importorskip and simply skip where they're absent.
+sim = [
+    "genesis-world==1.2.1",
+]
 
 [tool.setuptools]
 packages = ["sim", "data", "models", "models.ablations", "training", "eval"]
