@@ -150,10 +150,20 @@ def train(cfg: dict) -> dict:
         stage_ks = [cfg["data"]["horizon"]]
         horizon_at = lambda step: stage_ks[0]  # noqa: E731
 
+    # Gradient accumulation: the full-size model's per-graph memory (GATv2
+    # edge-level attention over ~2200 taxels x context_len graphs) OOMs well
+    # below PRD §6.2's target batch of 32-64 on a single GPU (empirically: a
+    # 46GB L40S fits micro-batch 4-5, not 32) — verified during the Phase 6
+    # validation run, see ROADMAP.md. micro_batch_size is the actual
+    # memory-bound per-forward-pass size; data.batch_size stays the semantic
+    # "effective batch" from the PRD, reached by accumulating gradients.
+    micro_bs = cfg["train"].get("micro_batch_size", cfg["data"]["batch_size"])
+    accum_steps = max(1, math.ceil(cfg["data"]["batch_size"] / micro_bs))
+
     def make_iter(k):
         loader = make_loader(
             urls,
-            batch_size=cfg["data"]["batch_size"],
+            batch_size=micro_bs,
             context_len=cfg["data"]["context_len"],
             horizon=k,
             stride=cfg["data"]["stride"],
@@ -185,63 +195,73 @@ def train(cfg: dict) -> dict:
 
     while step < tr["steps"]:
         k = horizon_at(step)
-        batch = next(iters[k])
-        B, N = batch["B"], batch["N"]
-        assert batch["horizon"] == k
-        ctx = batch["context_batch"].to(device)
-        tgt = batch["target_batch"].to(device)
-        actions = batch["actions"].to(device)
-
-        logs: dict[str, float] = {"horizon": k}
-        # Everything through the loss (encode/predict/VICReg/probes) runs
-        # under one autocast context, matching standard AMP usage — mixing
-        # bf16 activations with fp32-only ops outside the context would
-        # otherwise error the moment precision="bf16" is actually used.
-        with amp_context(device, precision):
-            node_ctx, glob_ctx = encode_batch(models["encoder"], ctx, B, N)
-            ctx_seq = glob_ctx.view(B, N, -1)
-            pred = models["predictor"](ctx_seq, actions, horizon=k)
-
-            if is_jepa:
-                with torch.no_grad():
-                    _, glob_tgt = encode_batch(models["target_encoder"], tgt, B, 1)
-                loss_pred = jepa_latent_loss(pred, glob_tgt)
-            else:
-                decoded = models["decoder"](pred)
-                target_force = tgt.force.view(B, layout.n_taxels, 3)
-                loss_pred = RawForceDecoder.loss(decoded, target_force)
-            loss = loss_pred
-
-            if tr["vicreg_var_weight"] or tr["vicreg_cov_weight"]:
-                var_l, cov_l = vicreg_regularizer(glob_ctx)
-                loss = loss + tr["vicreg_var_weight"] * var_l + tr["vicreg_cov_weight"] * cov_l
-                logs["vicreg_var"] = float(var_l)
-                logs["vicreg_cov"] = float(cov_l)
-
-            # probes on the LAST context step's latents (detached by default, §5.10)
-            last_idx = (
-                torch.arange(B, device=device) * N + (N - 1)
-            )  # graph ids of last ctx steps
-            node_mask = torch.isin(ctx.batch, last_idx)
-            nl = node_ctx[node_mask]
-            gl = glob_ctx[last_idx]
-            if not tr["probe_grad_to_encoder"]:
-                nl, gl = nl.detach(), gl.detach()
-            probe_out = models["probes"](nl, gl)
-            probe_losses = PhysicsProbes.losses(
-                probe_out,
-                force_mag=ctx.force_mag[node_mask],
-                slip=ctx.slip[node_mask],
-                contact_area=ctx.contact_area.view(B, N)[:, -1],
-            )
-            probe_total = sum(probe_losses.values())
-            loss = loss + tr["probe_weight"] * probe_total
-
-        logs["loss_pred"] = float(loss_pred.detach())
-        logs.update({f"probe_{k_}": float(v) for k_, v in probe_losses.items()})
-
         opt.zero_grad(set_to_none=True)
-        loss.backward()
+        accum: dict[str, float] = {}
+        last_canary_z = None
+
+        # Gradient accumulation over accum_steps micro-batches (see above) —
+        # each micro-batch's loss is scaled by 1/accum_steps before backward,
+        # so the accumulated gradient matches one true effective-batch step.
+        for _micro in range(accum_steps):
+            batch = next(iters[k])
+            B, N = batch["B"], batch["N"]
+            assert batch["horizon"] == k
+            ctx = batch["context_batch"].to(device)
+            tgt = batch["target_batch"].to(device)
+            actions = batch["actions"].to(device)
+
+            # Everything through the loss (encode/predict/VICReg/probes) runs
+            # under one autocast context, matching standard AMP usage — mixing
+            # bf16 activations with fp32-only ops outside the context would
+            # otherwise error the moment precision="bf16" is actually used.
+            with amp_context(device, precision):
+                node_ctx, glob_ctx = encode_batch(models["encoder"], ctx, B, N)
+                ctx_seq = glob_ctx.view(B, N, -1)
+                pred = models["predictor"](ctx_seq, actions, horizon=k)
+
+                if is_jepa:
+                    with torch.no_grad():
+                        _, glob_tgt = encode_batch(models["target_encoder"], tgt, B, 1)
+                    loss_pred = jepa_latent_loss(pred, glob_tgt)
+                else:
+                    decoded = models["decoder"](pred)
+                    target_force = tgt.force.view(B, layout.n_taxels, 3)
+                    loss_pred = RawForceDecoder.loss(decoded, target_force)
+                loss = loss_pred
+                micro_logs = {"loss_pred": float(loss_pred.detach())}
+
+                if tr["vicreg_var_weight"] or tr["vicreg_cov_weight"]:
+                    var_l, cov_l = vicreg_regularizer(glob_ctx)
+                    loss = loss + tr["vicreg_var_weight"] * var_l + tr["vicreg_cov_weight"] * cov_l
+                    micro_logs["vicreg_var"] = float(var_l)
+                    micro_logs["vicreg_cov"] = float(cov_l)
+
+                # probes on the LAST context step's latents (detached by default, §5.10)
+                last_idx = (
+                    torch.arange(B, device=device) * N + (N - 1)
+                )  # graph ids of last ctx steps
+                node_mask = torch.isin(ctx.batch, last_idx)
+                nl = node_ctx[node_mask]
+                gl = glob_ctx[last_idx]
+                if not tr["probe_grad_to_encoder"]:
+                    nl, gl = nl.detach(), gl.detach()
+                probe_out = models["probes"](nl, gl)
+                probe_losses = PhysicsProbes.losses(
+                    probe_out,
+                    force_mag=ctx.force_mag[node_mask],
+                    slip=ctx.slip[node_mask],
+                    contact_area=ctx.contact_area.view(B, N)[:, -1],
+                )
+                probe_total = sum(probe_losses.values())
+                loss = loss + tr["probe_weight"] * probe_total
+                micro_logs.update({f"probe_{k_}": float(v) for k_, v in probe_losses.items()})
+                micro_logs["loss_total"] = float(loss.detach())
+
+            (loss / accum_steps).backward()
+            for name, val in micro_logs.items():
+                accum[name] = accum.get(name, 0.0) + val / accum_steps
+            last_canary_z = glob_ctx[last_idx].detach()
+
         torch.nn.utils.clip_grad_norm_(trainable, tr["grad_clip"])
         for g in opt.param_groups:
             g["lr"] = lr_at(step, tr)
@@ -250,15 +270,16 @@ def train(cfg: dict) -> dict:
         if is_jepa:
             m = ema_momentum(step, tr["steps"], tr["ema_start"], tr["ema_end"])
             ema_update(models["target_encoder"], models["encoder"], m)
-            logs["ema_momentum"] = m
+            accum["ema_momentum"] = m
 
-        logs["loss_total"] = float(loss.detach())
-        # canary across DIFFERENT windows (last ctx step of each sample) —
-        # within-window steps of a static press are near-identical by nature
-        # and would mask collapse detection
-        logs["canary_cosine"] = collapse_canary(glob_ctx[last_idx].detach())
+        logs = {"horizon": k, **accum}
+        # canary from the last micro-batch's windows — within-window steps of
+        # a static press are near-identical by nature and would mask collapse
+        # detection, so this is measured across different windows already
+        logs["canary_cosine"] = collapse_canary(last_canary_z)
         logs["lr"] = opt.param_groups[0]["lr"]
         logs["step"] = step
+        logs["effective_batch"] = micro_bs * accum_steps
         history.append(logs)
 
         if step % tr["log_every"] == 0 or step == tr["steps"] - 1:

@@ -1,9 +1,8 @@
-# Nebius compute — DO NOT PROVISION YET
+# Nebius compute
 
-**Hard gate (PRD §9, Phase 5):** no Nebius GPU instance may be provisioned, launched,
-or billed before Phases 0–4 are complete AND the user has given an explicit go-ahead
-in that conversation. Phase 4's optional few-minute single-GPU loop validation also
-requires explicit user confirmation first.
+**Phase 5 go-ahead received 2026-07-04** — user explicitly authorized GPU provisioning
+and training in that conversation. The hard gate is now open; the discipline below
+still applies to every instance from here on.
 
 ## Discipline for when provisioning does start (Phase 5+)
 
@@ -21,4 +20,24 @@ requires explicit user confirmation first.
 
 ## Cost log
 
-*(empty — nothing has been provisioned)*
+### Instance 1: `magenta-gorilla-instance-9` (validation run)
+
+- **Launched:** 2026-07-04, via Nebius console (project `default-project-eu-north1`,
+  region eu-north1) — see reasoning below.
+- **Platform:** NVIDIA L40S AMD (`gpu-l40s-d`), 1 GPU, 16 vCPUs, 96 GiB RAM,
+  **Preemptible** (can be stopped anytime by Nebius with 60s warning — acceptable for
+  a short validation run, not used for the long ablation sweep).
+- **Boot disk:** Ubuntu 24.04 LTS for NVIDIA GPUs (CUDA 13), 200 GiB SSD (reduced from
+  the 1280 GiB default — not needed for this workload).
+- **Live price at provisioning (2026-07-04, confirmed in console, NOT trusted from
+  memory per §11):** compute $0.89/hr + storage $0.02/hr = **$0.91/hr total**.
+- **Why L40S, not H100:** model is <100M params (PRD §6.3); H100's memory
+  bandwidth/NVLink advantages target much larger models. L40S is roughly a third the
+  cost of H100 ($2.15/hr) and should be more than sufficient — this run's actual
+  purpose is to get real steps/sec numbers to confirm that.
+- **Instance ID:** `computeinstance-e00by75pxht27swrrb`, public IP `89.169.99.205`.
+- **Deallocate command (run the moment this instance is no longer needed):**
+  Console: VM overview page → "..." menu → Stop, then Delete once confirmed done.
+  (CLI equivalent, if `nebius` CLI gets set up later: `nebius compute instance stop
+  --id computeinstance-e00by75pxht27swrrb`.)
+- **Status / actual cost:** *(update after use — see below)*
