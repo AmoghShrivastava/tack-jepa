@@ -27,7 +27,10 @@ def load_run(run_dir: Path, device: str = "cpu"):
     cfg = yaml.safe_load((run_dir / "resolved_config.yaml").read_text())
     layout = TaxelLayout.load()
     models = build_models(cfg, layout)
-    state = torch.load(run_dir / "checkpoint.pt", map_location=device, weights_only=True)
+    ckpt = torch.load(run_dir / "checkpoint.pt", map_location=device, weights_only=True)
+    # checkpoints save {"models": {...}, "optimizer": ..., "step": ...} to
+    # support resuming preempted runs (see training/train.py)
+    state = ckpt["models"] if "models" in ckpt else ckpt
     for k, m in models.items():
         m.load_state_dict(state[k])
         m.eval().to(device)

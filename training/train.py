@@ -192,6 +192,30 @@ def train(cfg: dict) -> dict:
     t0 = time.time()
     history: list[dict] = []
     precision = tr.get("precision", "fp32")
+    checkpoint_every = tr.get("checkpoint_every", 500)
+    ckpt_path = out_dir / "checkpoint.pt"
+
+    # Resume support: a preemptible instance can be stopped mid-run (Nebius
+    # sends SIGTERM 60s before) — periodic checkpoints below + this resume
+    # path mean re-running the same run_name picks up where it left off
+    # instead of losing everything.
+    if ckpt_path.exists():
+        ckpt = torch.load(ckpt_path, map_location=device, weights_only=True)
+        for k, m in models.items():
+            m.load_state_dict(ckpt["models"][k])
+        opt.load_state_dict(ckpt["optimizer"])
+        step = ckpt["step"]
+        print(f"[{cfg['run_name']}] resumed from checkpoint at step {step}", flush=True)
+
+    def save_checkpoint(at_step: int):
+        torch.save(
+            {
+                "models": {k: m.state_dict() for k, m in models.items()},
+                "optimizer": opt.state_dict(),
+                "step": at_step,
+            },
+            ckpt_path,
+        )
 
     while step < tr["steps"]:
         k = horizon_at(step)
@@ -294,11 +318,10 @@ def train(cfg: dict) -> dict:
                 flush=True,
             )
         step += 1
+        if step % checkpoint_every == 0:
+            save_checkpoint(step)
 
-    torch.save(
-        {k: m.state_dict() for k, m in models.items()},
-        out_dir / "checkpoint.pt",
-    )
+    save_checkpoint(step)
     wandb.finish()
 
     return {
