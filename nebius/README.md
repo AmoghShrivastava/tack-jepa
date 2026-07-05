@@ -50,9 +50,17 @@ still applies to every instance from here on.
   remaining variants to reduce any future loss.
 - **Final status:** all 5 §7.2 variants trained to completion (2000 steps baseline,
   800 steps each ablation) + full eval harness (probe eval, downstream transfer,
-  collapse canary) run against all checkpoints. VM stopped 2026-07-05 (not deleted —
-  disk retained in case checkpoints are wanted; incurs a small ongoing storage-only
-  fee, no compute billing while stopped).
+  collapse canary) run against all checkpoints.
+- **Checkpoints archived to HF Hub, then instance deleted entirely:** pushed all 5
+  `checkpoint.pt` + metrics/config/probe_eval to the private model repo
+  `AmoghShrivastava1/tack-jepa-phase6-checkpoints` (2026-07-05) via `hf upload`
+  (device-code login, no token ever handled by the assistant). Decision to delete
+  rather than leave stopped: this disk's storage-only rate is $0.02/hr ($1.44 over
+  3 days); re-provisioning fresh later costs ~$0.08 in one-time setup overhead
+  (reinstall torch/PyG/webdataset, ~5 min) since the Stage A/B shards (113MB) are
+  trivial to re-upload — break-even is ~4 hours, so deleting after archiving wins
+  for any gap longer than that. Checkpoints retrievable anytime via
+  `hf download AmoghShrivastava1/tack-jepa-phase6-checkpoints`.
 - **Actual total cost: $8.23** (account balance $135.40 -> $127.17 across the whole
   session — provisioning, the memory/OOM investigation, the full training sweep
   including one preemption recovery, and the complete eval pass). Well within the
