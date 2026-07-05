@@ -40,4 +40,12 @@ still applies to every instance from here on.
   Console: VM overview page → "..." menu → Stop, then Delete once confirmed done.
   (CLI equivalent, if `nebius` CLI gets set up later: `nebius compute instance stop
   --id computeinstance-e00by75pxht27swrrb`.)
-- **Status / actual cost:** *(update after use — see below)*
+- **Preemption event:** instance was reclaimed by Nebius mid-sweep (~4.5 hours in, during
+  the `reconstruction` variant) — confirmed via console (Stop Instance operation) and
+  GPU/CPU metrics dropping to idle, not a training bug. `baseline`/`no_fk`/`image_native`
+  had already checkpointed and were unaffected; `reconstruction` (no checkpoint had been
+  hit yet at `checkpoint_every=500` default) lost ~760 steps, restarted at ~$0 cost
+  (a few minutes). Restarted the same instance (console "Start VM") — got the same
+  public IP back, disk/checkpoints intact. Increased `checkpoint_every` to 150 for the
+  remaining variants to reduce any future loss.
+- **Status / actual cost:** *(update after full completion)*
