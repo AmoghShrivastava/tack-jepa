@@ -11,7 +11,7 @@ Living document tracking the phased build order from [PRD.md](PRD.md) §9.
 | 3 | Graph construction + WebDataset sharding + Stage A/B data generation at small scale | A PyTorch `Dataset`/`DataLoader` yields correctly-shaped graph batches | No | **Done, corrected 2026-07-04** — see "Audit and correction" below. 210 Stage A + 210 Stage B episodes → 140/70 object-disjoint shards each; loader verified on real shards. |
 | 4 | Full model: online + EMA target encoder, predictor, JEPA loss, VICReg, probe heads — tiny-scale training run to confirm the loop works | Loss decreases, no immediate collapse, all §7.2 ablation code paths runnable | Optional, minimal (confirm with user first) | **Done, rerun on corrected pipeline 2026-07-04** — all 5 variants trained on CPU on Stage B data with the floating wrist, horizon curriculum, and bf16-capable loop; zero GPU billed. See "Audit and correction" below. |
 | 5 | **Scale-up decision point** — review Phases 0–4 with the user before provisioning any Nebius training cluster | Explicit human go-ahead | **Yes, from here on** | Not started — hard gate |
-| 6 | Stage B/C data generation at scale + full pretraining incl. all §7.2 ablations | Ablation results reported per §7.6 | Yes | **In progress** (2026-07-04; Nebius L40S provisioned, full-size sweep running — see below) |
+| 6 | Stage B/C data generation at scale + full pretraining incl. all §7.2 ablations | Ablation results reported per §7.6 | Yes | **Done at Stage B scale** (2026-07-04/05; all 5 variants trained full-size on the existing Stage A/B data — NOT yet "Stage C at scale," see caveat below; $8.23 total). |
 | 7 | Downstream task transfer evaluation (§7.4) | Sample-efficiency numbers reported | Yes | Not started |
 | 8+ | Stretch: soft-body coupling (§5.4), real-data zero-shot validation (§7.5), Stage D | — | Yes | Not started |
 
@@ -225,6 +225,54 @@ corrected Stage B data, CI green.
   on a **preemptible** instance (can be stopped by Nebius anytime with 60s warning) —
   previously training only saved a checkpoint at the very end, so any interruption
   would have lost all progress.
+
+- **2026-07-05 (Phase 6, results):** All 5 §7.2 variants trained full-size (hidden
+  256, 6 layers) on Stage B data, effective batch 32 via gradient accumulation
+  (micro-batch 4). **Findings (still small-data-scale — see caveat below, not final
+  H1/H2/H3 conclusions):**
+  - `baseline` and `no_fk` show healthy training: loss rises with each horizon-
+    curriculum stage (expected — harder task), collapse canary oscillates (0.94–1.0,
+    not pinned), VICReg variance hinge oscillates 0.67–0.93 (not collapsed).
+  - **`image_native` shows apparent representational collapse**: canary pinned at
+    1.0000 ± 1e-7 and VICReg variance pinned exactly at the 0.99 floor for the
+    *entire* 800-step run, confirmed on a separate frozen-encoder eval pass too
+    (`mean_dim_std` = 1.6e-5, four orders of magnitude below baseline's 0.30) —
+    despite having the *same* EMA+VICReg anti-collapse machinery as baseline. Its
+    prediction loss still drops (0.52->0.02), meaning it reaches low loss via some
+    degenerate/near-constant solution rather than genuine representation learning.
+    Its downstream slip AUROC (0.60, near chance) is consistent with this. **This is
+    reported as a real, unexplained finding, not smoothed over** (PRD §7.6) — it
+    needs investigation (rasterization/mosaic construction, ViT hyperparameters, or
+    a genuine early sign for H2) before any H2 conclusion is drawn.
+  - `reconstruction` and `no_vicreg` show intermediate representational diversity
+    (mean_dim_std 0.006–0.007) — expected, since both ablations deliberately remove
+    anti-collapse machinery (no target encoder/EMA/VICReg for reconstruction; no
+    VICReg for no_vicreg) — this is the ablations working as designed, not a
+    problem.
+  - All probe R² values are negative (worse than predicting the mean) — expected at
+    only 150 probe-training steps; slip AUROC (0.6–0.89 across variants, image_native
+    the outlier) is the more informative metric at this scale. Full numbers in
+    `runs/full_*/probe_eval.json`, curves in docs/figures/phase6_training.png.
+  - **Caveat, important:** this used the EXISTING Stage A/B data (210+210 episodes),
+    not PRD §6.1's "Stage C at scale" (thousands of diverse episodes). These results
+    validate the full pipeline runs correctly end-to-end at real GPU scale and
+    surface real findings (esp. image_native) worth chasing, but are NOT the final
+    word on H1/H2/H3 — that requires Stage C generation (still free/CPU-only) plus a
+    considerably longer/larger training budget.
+- **2026-07-05 (Phase 6, infrastructure lessons):** (a) the full-size model OOMs
+  above micro-batch ~4-5 on a 46GB GPU — fixed via gradient accumulation (see
+  training/train.py decisions above). (b) Preemptible instances WILL be reclaimed
+  mid-run in practice (observed once, ~4.5h into this session) — checkpoint/resume
+  (added same day) made this a non-event costing a few lost minutes, not hours. (c)
+  Eval (frozen-encoder probing) is significantly slower than expected (~12-15
+  min/variant) because per-window taxel-graph construction (radius search over
+  ~2200 taxels) is CPU-bound and dominates wall-clock even with a fast GPU doing the
+  actual encoding — precomputing graphs into shards (already flagged as a Phase 6+
+  option in the Phase 3 decisions log) becomes worth doing before any larger-scale
+  run. (d) SSH monitoring connections over this network path dropped repeatedly
+  (~5-6 times) without any impact on the actual remote training process — cosmetic
+  only, but worth using more aggressive keepalive settings or a poll-based watch
+  (not a long-lived tail -f) for future long remote runs.
 
 ## Phase 8+ flagged items (per PRD)
 

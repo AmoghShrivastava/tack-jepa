@@ -48,4 +48,12 @@ still applies to every instance from here on.
   (a few minutes). Restarted the same instance (console "Start VM") — got the same
   public IP back, disk/checkpoints intact. Increased `checkpoint_every` to 150 for the
   remaining variants to reduce any future loss.
-- **Status / actual cost:** *(update after full completion)*
+- **Final status:** all 5 §7.2 variants trained to completion (2000 steps baseline,
+  800 steps each ablation) + full eval harness (probe eval, downstream transfer,
+  collapse canary) run against all checkpoints. VM stopped 2026-07-05 (not deleted —
+  disk retained in case checkpoints are wanted; incurs a small ongoing storage-only
+  fee, no compute billing while stopped).
+- **Actual total cost: $8.23** (account balance $135.40 -> $127.17 across the whole
+  session — provisioning, the memory/OOM investigation, the full training sweep
+  including one preemption recovery, and the complete eval pass). Well within the
+  $9-15 estimate given after the OOM/accumulation finding.
