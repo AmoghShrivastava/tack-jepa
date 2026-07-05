@@ -11,7 +11,7 @@ Living document tracking the phased build order from [PRD.md](PRD.md) §9.
 | 3 | Graph construction + WebDataset sharding + Stage A/B data generation at small scale | A PyTorch `Dataset`/`DataLoader` yields correctly-shaped graph batches | No | **Done, corrected 2026-07-04** — see "Audit and correction" below. 210 Stage A + 210 Stage B episodes → 140/70 object-disjoint shards each; loader verified on real shards. |
 | 4 | Full model: online + EMA target encoder, predictor, JEPA loss, VICReg, probe heads — tiny-scale training run to confirm the loop works | Loss decreases, no immediate collapse, all §7.2 ablation code paths runnable | Optional, minimal (confirm with user first) | **Done, rerun on corrected pipeline 2026-07-04** — all 5 variants trained on CPU on Stage B data with the floating wrist, horizon curriculum, and bf16-capable loop; zero GPU billed. See "Audit and correction" below. |
 | 5 | **Scale-up decision point** — review Phases 0–4 with the user before provisioning any Nebius training cluster | Explicit human go-ahead | **Yes, from here on** | **Passed** (2026-07-04; explicit go-ahead given in conversation) |
-| 6 | Stage B/C data generation at scale + full pretraining incl. all §7.2 ablations | Ablation results reported per §7.6 | Yes | **Done at Stage B scale** (2026-07-04/05; all 5 variants trained full-size on the existing Stage A/B data — NOT yet "Stage C at scale," see caveat below; $8.23 total). |
+| 6 | Stage B/C data generation at scale + full pretraining incl. all §7.2 ablations | Ablation results reported per §7.6 | Yes | **Done at Stage B scale** (2026-07-04/05; all 5 variants trained full-size on the existing Stage A/B data — NOT yet "Stage C at scale," see caveat below; $8.23 total). Checkpoints archived to HF Hub (`AmoghShrivastava1/tack-jepa-phase6-checkpoints`, private) 2026-07-05; Nebius VM + disk then deleted entirely (zero ongoing cost) — see nebius/README.md cost log for the full reasoning. |
 | 7 | Downstream task transfer evaluation (§7.4) | Sample-efficiency numbers reported | Yes | **Partially done** — slip-onset transfer run for baseline/image_native/raw-baseline at small episode budgets (8/16/32) on the current small dataset; numbers not yet meaningful (see below) and grasp-stability task not yet wired up. |
 | 8+ | Stretch: soft-body coupling (§5.4), real-data zero-shot validation (§7.5), Stage D | — | Yes | Not started |
 
@@ -273,6 +273,19 @@ corrected Stage B data, CI green.
   (~5-6 times) without any impact on the actual remote training process — cosmetic
   only, but worth using more aggressive keepalive settings or a poll-based watch
   (not a long-lived tail -f) for future long remote runs.
+- **2026-07-05 (Phase 6, wrap-up):** all 5 checkpoints (+ metrics/config/probe_eval)
+  pushed to the private HF Hub model repo
+  `AmoghShrivastava1/tack-jepa-phase6-checkpoints` via `hf upload` (device-code auth —
+  no token ever handled by the assistant), then the Nebius instance and its disk were
+  deleted entirely. Decision math: this disk's storage-only rate is $0.02/hr ($1.44
+  over 3 days if left stopped); re-provisioning a fresh VM later costs ~$0.08 in
+  one-time setup overhead (reinstall torch/PyG/webdataset — Stage A/B shards are only
+  113MB to re-upload). Break-even is ~4 hours, so delete-after-archiving wins for any
+  gap longer than that. Retrieve checkpoints anytime with
+  `hf download AmoghShrivastava1/tack-jepa-phase6-checkpoints`. Note: re-provisioning
+  a VM later is NOT the same as retraining — the $8.23 sweep's results are already
+  saved; future GPU cost would only be for genuinely new work (e.g. confirming a fix
+  to the `image_native` collapse, or Stage C training), not repeating this sweep.
 
 ## Phase 8+ flagged items (per PRD)
 
