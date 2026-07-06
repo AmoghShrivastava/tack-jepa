@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import signal
 import time
 from pathlib import Path
 
@@ -217,6 +218,19 @@ def train(cfg: dict) -> dict:
             ckpt_path,
         )
 
+    # Nebius preemptible instances get SIGTERM ~60s before the VM is actually
+    # killed. checkpoint_every alone can still lose up to that many steps; the
+    # handler just sets a flag (signal handlers must stay minimal/async-safe)
+    # that the loop checks after each completed step and reacts to by saving
+    # immediately and exiting, so a preemption costs ~0 steps instead of up to
+    # checkpoint_every.
+    _preempted = {"flag": False}
+
+    def _on_sigterm(signum, frame):
+        _preempted["flag"] = True
+
+    signal.signal(signal.SIGTERM, _on_sigterm)
+
     while step < tr["steps"]:
         k = horizon_at(step)
         opt.zero_grad(set_to_none=True)
@@ -321,6 +335,17 @@ def train(cfg: dict) -> dict:
         step += 1
         if step % checkpoint_every == 0:
             save_checkpoint(step)
+        if _preempted["flag"]:
+            print(
+                f"[{cfg['run_name']}] SIGTERM received at step {step} — "
+                "saving checkpoint immediately, exiting",
+                flush=True,
+            )
+            save_checkpoint(step)
+            wandb.finish()
+            return {
+                "run_name": cfg["run_name"], "variant": variant, "steps": step, "preempted": True
+            }
 
     save_checkpoint(step)
     wandb.finish()
