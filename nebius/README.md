@@ -65,3 +65,38 @@ still applies to every instance from here on.
   session — provisioning, the memory/OOM investigation, the full training sweep
   including one preemption recovery, and the complete eval pass). Well within the
   $9-15 estimate given after the OOM/accumulation finding.
+
+### Instance 2: `tackjepa-stagec` (Stage C full retrain, all 5 variants)
+
+- **Launched:** 2026-07-06, via Nebius console (project `default-project-eu-north1`,
+  region eu-north1), after PRD-scale Stage C data generation (16 object variants:
+  6 primitives + 4 Genesis-bundled meshes + 6 procedural superquadrics; press/grasp/
+  slide trajectories; 4000 episodes -> 3250 train / 750 val object-disjoint shards,
+  see ROADMAP.md Stage C decisions log) and the `image_native` collapse fix
+  (see prior ROADMAP.md entry) were both complete.
+- **Platform:** NVIDIA L40S AMD (`gpu-l40s-d`), 1 GPU, 16 vCPUs, 96 GiB RAM,
+  **Preemptible**.
+- **Boot disk:** Ubuntu 24.04 LTS for NVIDIA GPUs (CUDA 13), 250 GiB SSD (bumped up
+  from 200 GiB last time — Stage C's shards are larger, 1.4GB vs 113MB).
+- **Live price at provisioning (2026-07-06, confirmed in console):** compute
+  $0.89/hr + storage $0.03/hr (250GiB) = **$0.92/hr total**.
+- **Instance ID:** `computeinstance-e00z5mfrpz1d5v7s6b`, public IP `89.169.103.86`.
+- **Deallocate command (run the moment this instance is no longer needed):**
+  Console: VM overview page → Settings tab → "Delete virtual machine" (deletes VM
+  + disk together, confirmed by name). CLI equivalent if set up:
+  `nebius compute instance delete --id computeinstance-e00z5mfrpz1d5v7s6b`.
+- **Training budget:** all 5 §7.2 variants (baseline, no_fk, image_native [with the
+  occupancy-channel fix], reconstruction, no_vicreg) at an **equal 6000-step budget
+  each** (30,000 variant-steps total) — deliberately equal this time for a fair
+  comparison, unlike Phase 6's asymmetric 2000/800 split. `data.shard_dir=
+  datasets/shards_c`, bf16, effective batch 32 via gradient accumulation
+  (micro-batch 4), `checkpoint_every=150`. Launched sequentially via
+  `run_stagec_sweep.sh` under `nohup` so the sweep survives SSH disconnects.
+- **Cost estimate (given to user before launch, explicitly approved):** based on
+  Phase 6's actual rate (~575 variant-steps/hour including eval overhead), 30,000
+  variant-steps projects to **~52 hours (~2.2 days), ~$47-50** — a real jump from
+  Phase 6's $8.23/~5hrs, flagged and confirmed with the user beforehand given both
+  the cost and the higher cumulative preemption risk of a multi-day continuous run.
+- **Status:** training started 2026-07-06 (`baseline_stagec` step 0 confirmed
+  running, 93% GPU utilization, ~17.7GB VRAM). In progress — will update with
+  final cost/outcome once complete.
