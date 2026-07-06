@@ -133,6 +133,24 @@ class HandEnv:
             obj_morph = gs.morphs.Sphere(radius=float(dims), pos=object_pos, fixed=object_fixed)
         elif kind == "box":
             obj_morph = gs.morphs.Box(size=tuple(dims), pos=object_pos, fixed=object_fixed)
+        elif kind == "mesh":
+            # dims = (file_path, scale) — arbitrary triangle mesh (Stage C
+            # multi-object diversity: Genesis's own bundled asset meshes and
+            # procedurally-generated superquadrics, both saved as OBJ/STL and
+            # loaded through this same path). decompose_nonconvex preserves
+            # non-convex surface features (relevant for tactile contact
+            # realism) via CoACD rather than flattening to one convex hull.
+            path, scale = dims
+            obj_morph = gs.morphs.Mesh(
+                file=str(path),
+                scale=float(scale),
+                pos=object_pos,
+                fixed=object_fixed,
+                convexify=False,  # decompose (CoACD) rather than one convex hull
+                recompute_inertia=True,
+                decimate=True,  # cap collision-mesh face count for per-step speed
+                                 # across the thousands of episodes Stage C needs
+            )
         else:
             raise ValueError(f"unknown object kind {kind!r}")
         self.object_spec = (kind, dims)

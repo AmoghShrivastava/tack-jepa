@@ -161,8 +161,14 @@ def main():
     parser.add_argument("--episodes", type=Path, required=True, help="e.g. datasets/stage_a")
     parser.add_argument("--out", type=Path, required=True, help="e.g. datasets/shards_a")
     parser.add_argument("--shard-size", type=int, default=32)
+    parser.add_argument(
+        "--val-variants", type=int, nargs="+", default=None,
+        help="Object-variant indices to hold out entirely for val (object-disjoint, PRD §7.3). "
+             f"Default: {VAL_VARIANTS} (Stage A/B's 6-variant pool).",
+    )
     args = parser.parse_args()
-    write_shards(args.episodes, args.out, args.shard_size)
+    val_variants = tuple(args.val_variants) if args.val_variants is not None else VAL_VARIANTS
+    write_shards(args.episodes, args.out, args.shard_size, val_variants=val_variants)
 
 
 if __name__ == "__main__":

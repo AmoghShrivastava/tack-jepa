@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+import genesis
 import numpy as np
 
 from sim.hand_env import (
@@ -53,6 +54,34 @@ VARIANTS: list[tuple] = [
     ("box", (0.05, 0.05, 0.06)),
 ]
 
+# Stage C multi-object pool (PRD §6.1): the Stage A/B primitives, plus mesh
+# objects (Genesis's own bundled assets rather than external YCB — see
+# ROADMAP.md Phase 6/Stage C decision log for why: untested external mesh
+# import carries real non-convex/collision-instability risk that would
+# corrupt tactile data, while these ship pre-tested with this exact engine)
+# and procedurally generated superquadrics for smooth shape-family diversity.
+_GENESIS_MESH_DIR = Path(genesis.__file__).resolve().parent / "assets" / "meshes"
+_SUPERQUADRIC_DIR = Path(__file__).resolve().parent.parent / "assets" / "superquadrics"
+
+VARIANTS_C_MESH: list[tuple] = [
+    ("mesh", (str(_GENESIS_MESH_DIR / "bolt_nut" / "bolt.stl"), 1.0)),
+    ("mesh", (str(_GENESIS_MESH_DIR / "bolt_nut" / "nut.stl"), 1.0)),
+    ("mesh", (str(_GENESIS_MESH_DIR / "tank.obj"), 0.5)),
+    ("mesh", (str(_GENESIS_MESH_DIR / "bunny.obj"), 0.06)),
+]
+
+
+def _variants_c_superquadric() -> list[tuple]:
+    from sim.superquadric import build_superquadric_variants
+
+    paths = build_superquadric_variants(_SUPERQUADRIC_DIR)
+    return [("mesh", (str(p), 1.0)) for p in paths]
+
+
+def variants_c() -> list[tuple]:
+    """Full Stage C object pool: primitives + bundled meshes + superquadrics."""
+    return VARIANTS + VARIANTS_C_MESH + _variants_c_superquadric()
+
 # Validated engagement geometry (Phases 1-3): palm-up hand, object resting in
 # the half-open "basket" shape of the fingers just above the palm.
 NOMINAL_WRIST_POS = np.array([0.0, 0.0, 0.25])
@@ -62,6 +91,10 @@ NOMINAL_OBJECT_POS = np.array([0.0, 0.0, 0.308])
 N_A_APPROACH, N_A_HOLD = 80, 140
 N_B_SETTLE, N_B_CLOSE, N_B_HOLD = 40, 120, 60
 N_B_PERTURB = 60  # post-nudge steps for grasp-stability labeling (§7.4)
+N_C_SETTLE, N_C_CLOSE, N_C_SLIDE, N_C_HOLD = 40, 100, 100, 40
+C_SLIDE_DIST = (0.02, 0.05)  # meters, lateral drag distance range
+C_SLIDE_GRIP = (0.35, 0.65)  # deliberately looser than Stage B's grasp so the
+                              # drag actually produces slip, not a rigid carry
 
 # jitter bands (position: meters, rotation: radians, applied per-axis).
 # Start-pose jitter is generous (varies the approach path); end-pose jitter
@@ -317,49 +350,156 @@ def rollout_stage_b_episode(
     return dump
 
 
+def rollout_stage_c_slide_episode(
+    env: HandEnv, rng: np.random.Generator, drop_pos: np.ndarray, grip_scale: float
+) -> dict:
+    """Slide: object free-falls into a deliberately loose grip (PRD §6.1 Stage
+    C "slide" trajectory), then the wrist drags it laterally across the
+    palm/fingers — the loose grip lets it actually slip rather than being
+    carried rigidly, producing the tangential-slip diversity the slip probe
+    (§5.9) and downstream slip-onset transfer task (§7.4) need."""
+    env.scene.reset()
+    env.obj.set_pos(drop_pos)
+    if env.object_spec[0] == "box":
+        yaw = rng.uniform(0, np.pi / 2)
+        env.obj.set_quat(np.array([np.cos(yaw / 2), 0.0, 0.0, np.sin(yaw / 2)]))
+
+    start_pos = NOMINAL_WRIST_POS + rng.uniform(-B_POS_JITTER, B_POS_JITTER, size=3)
+    start_rot = NOMINAL_WRIST_ROTVEC + rng.uniform(-B_ROT_JITTER, B_ROT_JITTER, size=3)
+    settle_pos, settle_rot = NOMINAL_WRIST_POS, NOMINAL_WRIST_ROTVEC
+    fingers = finger_targets(env, (0.0, 1.0))
+    open_fingers, close_fingers = fingers[0], fingers[1]
+    grip_fingers = open_fingers + (close_fingers - open_fingers) * grip_scale
+
+    env.hand.set_dofs_position(
+        np.concatenate([start_pos, start_rot, open_fingers[6:]]).astype(np.float32),
+        zero_velocity=True,
+    )
+
+    record, steps, contact_rows, contact_steps = _record_factory(env)
+    t = 0
+    n_wrist_settle = N_C_SETTLE + N_C_CLOSE
+    for i in range(N_C_SETTLE):
+        alpha = (i + 1) / n_wrist_settle
+        wrist = start_pos + alpha * (settle_pos - start_pos)
+        wrist_rot = start_rot + alpha * (settle_rot - start_rot)
+        target = np.concatenate([wrist, wrist_rot, open_fingers[6:]]).astype(np.float32)
+        env.step(target)
+        record(t, target)
+        t += 1
+    for i in range(N_C_CLOSE):
+        alpha_w = (N_C_SETTLE + i + 1) / n_wrist_settle
+        beta = (i + 1) / N_C_CLOSE
+        wrist = start_pos + alpha_w * (settle_pos - start_pos)
+        wrist_rot = start_rot + alpha_w * (settle_rot - start_rot)
+        finger = open_fingers + beta * (grip_fingers - open_fingers)
+        target = np.concatenate([wrist, wrist_rot, finger[6:]]).astype(np.float32)
+        env.step(target)
+        record(t, target)
+        t += 1
+
+    slide_dir = rng.uniform(0, 2 * np.pi)
+    slide_dist = rng.uniform(*C_SLIDE_DIST)
+    slide_delta = slide_dist * np.array([np.cos(slide_dir), np.sin(slide_dir), 0.0])
+    for i in range(N_C_SLIDE):
+        alpha = (i + 1) / N_C_SLIDE
+        wrist = settle_pos + alpha * slide_delta
+        target = np.concatenate([wrist, settle_rot, grip_fingers[6:]]).astype(np.float32)
+        env.step(target)
+        record(t, target)
+        t += 1
+    hold_target = np.concatenate(
+        [settle_pos + slide_delta, settle_rot, grip_fingers[6:]]
+    ).astype(np.float32)
+    for _ in range(N_C_HOLD):
+        env.step(hold_target)
+        record(t, hold_target)
+        t += 1
+
+    return _finalize(env, steps, contact_rows, contact_steps)
+
+
 def generate_stage(
     stage: str, out_dir: Path, per_variant: int, seed: int = 0, perturb: bool = False
 ):
     out_dir.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(seed)
-    manifest = []
-    for vi, spec in enumerate(VARIANTS):
-        env = HandEnv(object_spec=spec, object_fixed=(stage == "a"))
-        for ei in range(per_variant):
-            if stage == "a":
-                obj_pos = NOMINAL_OBJECT_POS + rng.uniform(-0.01, 0.01, size=3)
-                dump = rollout_stage_a_episode(env, rng, obj_pos)
-            else:
-                drop = NOMINAL_OBJECT_POS + np.array(
-                    [rng.uniform(-0.02, 0.03), rng.uniform(-0.02, 0.02), rng.uniform(-0.01, 0.02)]
-                )
-                close_scale = rng.uniform(0.75, 1.25)
-                dump = rollout_stage_b_episode(env, rng, drop, close_scale, perturb=perturb)
+    variants = variants_c() if stage == "c" else VARIANTS
+    n_failed = 0
+    # append-mode + flush per line: a crash (Genesis's rigid solver can raise
+    # on a genuinely degenerate contact configuration — hit once in practice
+    # during Stage C generation) must not lose the manifest for everything
+    # already generated, only the one episode that failed.
+    with open(out_dir / "manifest.txt", "a") as manifest_f:
+        for vi, spec in enumerate(variants):
+            # Stage C uses a genuinely free object even for "press"-style
+            # episodes (PRD §6.1's diverse-trajectory main pretraining stage)
+            # — only Stage A pins the object in place for the simplest
+            # possible debug signal.
+            env = HandEnv(object_spec=spec, object_fixed=(stage == "a"))
+            for ei in range(per_variant):
+                name = f"ep_{vi}_{ei:04d}"
+                npz_path = out_dir / f"{name}.npz"
+                if npz_path.exists():
+                    continue  # resume: skip episodes already on disk
 
-            name = f"ep_{vi}_{ei:04d}"
-            np.savez_compressed(out_dir / f"{name}.npz", **dump)
-            n_contact_steps = np.unique(dump["contact_step"]).size
-            manifest.append((name, spec, n_contact_steps))
-            max_tan = dump.get("contact_tangential_speed", np.zeros(1)).max()
-            extra = f" stable={bool(dump['stable'])}" if perturb else ""
-            print(
-                f"{name}: {spec} steps={dump['qpos'].shape[0]} "
-                f"contact_steps={n_contact_steps} max_tan_speed={max_tan:.4f}{extra}"
-            )
-    with open(out_dir / "manifest.txt", "w") as f:
-        for row in manifest:
-            f.write(f"{row}\n")
+                try:
+                    if stage == "a":
+                        obj_pos = NOMINAL_OBJECT_POS + rng.uniform(-0.01, 0.01, size=3)
+                        dump = rollout_stage_a_episode(env, rng, obj_pos)
+                        traj = "press"
+                    elif stage == "b":
+                        drop = NOMINAL_OBJECT_POS + np.array(
+                            [rng.uniform(-0.02, 0.03), rng.uniform(-0.02, 0.02), rng.uniform(-0.01, 0.02)]
+                        )
+                        close_scale = rng.uniform(0.75, 1.25)
+                        dump = rollout_stage_b_episode(env, rng, drop, close_scale, perturb=perturb)
+                        traj = "grasp"
+                    else:  # stage c: mix press/grasp/slide trajectories (PRD §6.1)
+                        traj = rng.choice(["press", "grasp", "slide"])
+                        drop = NOMINAL_OBJECT_POS + np.array(
+                            [rng.uniform(-0.02, 0.03), rng.uniform(-0.02, 0.02), rng.uniform(-0.01, 0.02)]
+                        )
+                        if traj == "press":
+                            dump = rollout_stage_a_episode(env, rng, drop)
+                        elif traj == "grasp":
+                            close_scale = rng.uniform(0.75, 1.25)
+                            dump = rollout_stage_b_episode(env, rng, drop, close_scale, perturb=perturb)
+                        else:
+                            grip_scale = rng.uniform(*C_SLIDE_GRIP)
+                            dump = rollout_stage_c_slide_episode(env, rng, drop, grip_scale)
+                except Exception as e:  # noqa: BLE001 — genuinely any solver failure
+                    n_failed += 1
+                    print(f"{name}: {spec} FAILED ({type(e).__name__}: {e}) — skipping, rebuilding env")
+                    # a NaN/solver exception can leave the scene's internal
+                    # state corrupted; rebuild fresh rather than risk silently
+                    # bad data on every subsequent episode of this variant
+                    env = HandEnv(object_spec=spec, object_fixed=(stage == "a"))
+                    continue
+
+                np.savez_compressed(npz_path, **dump)
+                n_contact_steps = np.unique(dump["contact_step"]).size
+                manifest_f.write(f"{(name, spec, traj, n_contact_steps)}\n")
+                manifest_f.flush()
+                max_tan = dump.get("contact_tangential_speed", np.zeros(1)).max()
+                extra = f" stable={bool(dump['stable'])}" if perturb and traj == "grasp" else ""
+                print(
+                    f"{name}: {spec} traj={traj} steps={dump['qpos'].shape[0]} "
+                    f"contact_steps={n_contact_steps} max_tan_speed={max_tan:.4f}{extra}"
+                )
+    if n_failed:
+        print(f"generation done with {n_failed} episode(s) skipped due to solver failures")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--stage", choices=["a", "b"], required=True)
+    parser.add_argument("--stage", choices=["a", "b", "c"], required=True)
     parser.add_argument("--out", type=Path, default=None)
     parser.add_argument("--per-variant", type=int, default=35)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument(
         "--perturb", action="store_true",
-        help="Stage B only: add an object nudge + grasp-stability label (§7.4)",
+        help="Stage B/C grasp episodes only: add an object nudge + grasp-stability label (§7.4)",
     )
     args = parser.parse_args()
     out = args.out or Path(f"datasets/stage_{args.stage}")
