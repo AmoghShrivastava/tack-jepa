@@ -100,3 +100,15 @@ still applies to every instance from here on.
 - **Status:** training started 2026-07-06 (`baseline_stagec` step 0 confirmed
   running, 93% GPU utilization, ~17.7GB VRAM). In progress — will update with
   final cost/outcome once complete.
+- **Preemption event:** instance was reclaimed by Nebius partway through `no_fk`
+  (confirmed via console: "Stop Instance" performed by "None", i.e. not
+  user-initiated). `baseline_stagec` had already finished all 6000 steps
+  beforehand (unaffected); `no_fk_stagec` was interrupted around step ~650-700,
+  with its last checkpoint saved at step 600 (`checkpoint_every=150` limited the
+  loss to under 100 steps). Restarted the same instance via console — got a new
+  public IP (89.169.103.86 -> 89.169.103.53), disk/checkpoints intact. Relaunched
+  the remaining variants (`no_fk`, `image_native`, `reconstruction`, `no_vicreg`)
+  via a new `run_stagec_sweep2.sh`; `no_fk` auto-resumed cleanly from its step-600
+  checkpoint (confirmed in logs: "resumed from checkpoint at step 600"), GPU back
+  to 100% utilization. No manual data loss beyond the ~50-100 uncheckpointed
+  steps.
