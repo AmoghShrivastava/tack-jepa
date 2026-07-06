@@ -6,9 +6,11 @@ import pytest
 torch = pytest.importorskip("torch")
 pytest.importorskip("torch_geometric")
 
+from models.ablations.image_native import TactileImageEncoder  # noqa: E402
 from models.encoder import TaxelGraphEncoder  # noqa: E402
 from models.predictor import ActionConditionedPredictor  # noqa: E402
 from models.probes import PhysicsProbes  # noqa: E402
+from sim.taxel_layout import TaxelLayout  # noqa: E402
 
 
 def tiny_batch(n_per_graph=(30, 40), seed=0):
@@ -124,3 +126,53 @@ def test_contact_area_scale_normalizes_loss_magnitude():
     # magnitude to force_mag's, instead of dwarfing it
     assert scaled["contact_area"] < unscaled["contact_area"]
     assert scaled["contact_area"] < 10 * scaled["force_mag"]
+
+
+def test_rasterize_occupancy_reflects_contact_not_constant():
+    """Regression test for the Phase 6 collapse bug: occupancy must be a
+    per-taxel CONTACT indicator, not a hardcoded constant (torch.ones_like)
+    that would dominate the image's magnitude with zero information."""
+    layout = TaxelLayout.load()
+    enc = TactileImageEncoder(layout=layout, dim=16, n_layers=1, heads=2, patch=4, node_out=8, global_dim=8)
+    n = layout.n_taxels
+    batch = torch.zeros(n, dtype=torch.long)
+
+    img_zero = enc.rasterize(torch.zeros(n, 3), batch)
+    assert torch.all(img_zero[:, 2] == 0), "occupancy must be all-zero when nothing is touched"
+
+    touched = torch.arange(0, 50)
+    force = torch.zeros(n, 3)
+    force[touched, 0] = 0.05
+    img_touch = enc.rasterize(force, batch)
+    assert img_touch[:, 2].sum().item() == pytest.approx(len(touched))
+    assert img_touch[:, 2].max() > 0
+
+
+def test_image_native_encoder_responds_to_different_contact_patterns():
+    """The encoder must produce different global latents for genuinely
+    different contact patterns (not the collapsed behavior found in Phase 6,
+    where the occupancy-channel bug swamped this signal to near-zero)."""
+    layout = TaxelLayout.load()
+    torch.manual_seed(0)
+    enc = TactileImageEncoder(layout=layout, dim=16, n_layers=1, heads=2, patch=4, node_out=8, global_dim=8)
+    enc.eval()
+    n = layout.n_taxels
+    batch = torch.zeros(n, dtype=torch.long)
+    link_index = torch.zeros(n, dtype=torch.long)
+    edge_index = torch.zeros((2, 0), dtype=torch.long)
+    pos = torch.zeros(n, 3)
+    normal = torch.zeros(n, 3)
+    qpos = torch.zeros(1, 22)
+
+    def make_force(touched):
+        f = torch.zeros(n, 3)
+        f[touched, 0] = 0.05
+        f[touched, 1] = 0.03
+        return f
+
+    force_a = make_force(torch.arange(0, 50))
+    force_b = make_force(torch.arange(500, 550))
+    with torch.no_grad():
+        _, glob_a = enc(force_a, link_index, edge_index, batch, pos, normal, qpos)
+        _, glob_b = enc(force_b, link_index, edge_index, batch, pos, normal, qpos)
+    assert not torch.allclose(glob_a, glob_b)

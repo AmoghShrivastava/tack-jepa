@@ -11,7 +11,7 @@ Living document tracking the phased build order from [PRD.md](PRD.md) §9.
 | 3 | Graph construction + WebDataset sharding + Stage A/B data generation at small scale | A PyTorch `Dataset`/`DataLoader` yields correctly-shaped graph batches | No | **Done, corrected 2026-07-04** — see "Audit and correction" below. 210 Stage A + 210 Stage B episodes → 140/70 object-disjoint shards each; loader verified on real shards. |
 | 4 | Full model: online + EMA target encoder, predictor, JEPA loss, VICReg, probe heads — tiny-scale training run to confirm the loop works | Loss decreases, no immediate collapse, all §7.2 ablation code paths runnable | Optional, minimal (confirm with user first) | **Done, rerun on corrected pipeline 2026-07-04** — all 5 variants trained on CPU on Stage B data with the floating wrist, horizon curriculum, and bf16-capable loop; zero GPU billed. See "Audit and correction" below. |
 | 5 | **Scale-up decision point** — review Phases 0–4 with the user before provisioning any Nebius training cluster | Explicit human go-ahead | **Yes, from here on** | **Passed** (2026-07-04; explicit go-ahead given in conversation) |
-| 6 | Stage B/C data generation at scale + full pretraining incl. all §7.2 ablations | Ablation results reported per §7.6 | Yes | **Done at Stage B scale** (2026-07-04/05; all 5 variants trained full-size on the existing Stage A/B data — NOT yet "Stage C at scale," see caveat below; $8.23 total). Checkpoints archived to HF Hub (`AmoghShrivastava1/tack-jepa-phase6-checkpoints`, private) 2026-07-05; Nebius VM + disk then deleted entirely (zero ongoing cost) — see nebius/README.md cost log for the full reasoning. |
+| 6 | Stage B/C data generation at scale + full pretraining incl. all §7.2 ablations | Ablation results reported per §7.6 | Yes | **Done at Stage B scale** (2026-07-04/05; all 5 variants trained full-size on the existing Stage A/B data — NOT yet "Stage C at scale," see caveat below; $8.23 total). Checkpoints archived to HF Hub (`AmoghShrivastava1/tack-jepa-phase6-checkpoints`, private) 2026-07-05; Nebius VM + disk then deleted entirely (zero ongoing cost) — see nebius/README.md cost log for the full reasoning. **`image_native` collapse root-caused and fixed 2026-07-05** (constant/uninformative occupancy channel dominating the image, see decisions log below) — fix verified via new unit tests + real data, retraining to confirm not yet done (needs GPU go-ahead). |
 | 7 | Downstream task transfer evaluation (§7.4) | Sample-efficiency numbers reported | Yes | **Partially done** — slip-onset transfer run for baseline/image_native/raw-baseline at small episode budgets (8/16/32) on the current small dataset; numbers not yet meaningful (see below) and grasp-stability task not yet wired up. |
 | 8+ | Stretch: soft-body coupling (§5.4), real-data zero-shot validation (§7.5), Stage D | — | Yes | Not started |
 
@@ -286,6 +286,36 @@ corrected Stage B data, CI green.
   a VM later is NOT the same as retraining — the $8.23 sweep's results are already
   saved; future GPU cost would only be for genuinely new work (e.g. confirming a fix
   to the `image_native` collapse, or Stage C training), not repeating this sweep.
+- **2026-07-05 (Phase 6, `image_native` collapse root-caused and fixed — free,
+  CPU-only analysis, no GPU needed):** downloaded the trained checkpoint from HF
+  Hub and traced variance layer-by-layer (rasterize -> patch_embed -> transformer
+  -> CLS -> global_head) against real val-split data. Root cause: in
+  `models/ablations/image_native.py`'s `rasterize()`, the mosaic's third channel
+  ("occupancy") was `torch.ones_like(f_n)` — a hardcoded constant, identical
+  across every single window in the dataset, since every taxel always occupies a
+  pixel regardless of contact. Measured on 1289 real windows with genuinely
+  diverse contact patterns (mean taxel-overlap IoU only 0.359 between windows):
+  this constant channel was ~350x larger in scale than the two channels carrying
+  the real signal (f_normal, shear) and accounted for **100.00% of the image's L2
+  energy** vs 0.00% for the other two combined — fed into an unnormalized
+  `Conv2d` patch embedding, the network's input was, in practice, a fixed image,
+  which explains the pinned canary/VICReg-floor/near-chance slip-AUROC findings
+  above. Ruled out an initial alternative hypothesis (58% of windows have zero
+  contact at all) as the primary cause first — collapse was equally total
+  (canary 1.0000) even restricted to the 263 substantial-contact windows, so it
+  wasn't primarily a data-sparsity artifact. **Fix:** `occ` is now a genuine
+  per-taxel contact indicator (`(f_n != 0) | (shear != 0)`), verified on real
+  data to vary correctly with the actual touched-taxel set (e.g. sums of
+  160/113/270/148 across different windows, vs. always-2244 before). Added two
+  new regression tests (`test_rasterize_occupancy_reflects_contact_not_constant`,
+  `test_image_native_encoder_responds_to_different_contact_patterns`) —
+  `TactileImageEncoder` previously had **zero** unit test coverage (the shared
+  `tiny_batch()` helper uses partial taxel counts that fail this encoder's
+  full-taxel-set assert), which is why this went undetected until the real GPU
+  run. All 53 repo tests pass after the fix. **Not yet done:** actually
+  retraining `image_native` to confirm the fix resolves collapse in practice —
+  that requires GPU time and is a separate go/no-go decision from this
+  free/local fix.
 
 ## Phase 8+ flagged items (per PRD)
 

@@ -91,12 +91,22 @@ class TactileImageEncoder(nn.Module):
         Channels: f_normal, |shear|, occupancy. Multiple taxels landing on one
         pixel sum — the resolution loss inherent to image representations that
         H2 is about.
+
+        occupancy is a per-taxel CONTACT indicator (1 if this taxel currently
+        registers any force, else 0) — NOT "this pixel maps to a valid taxel
+        slot" (that would be constant across every window, since the taxel
+        layout is fixed geometry, and would carry zero information while
+        dominating the image's magnitude next to the much smaller f_normal/
+        shear values — this was a real bug found via Phase 6 collapse
+        analysis: occupancy was `ones_like(f_n)`, a hardcoded constant image
+        fed into every training step, ~350x larger in scale than the actual
+        signal and completely swamping it in the unnormalized patch_embed).
         """
         B = int(batch.max().item()) + 1
         n_pix = self.H * self.W
         f_n = force[:, 0]
         shear = force[:, 1:].norm(dim=1)
-        occ = torch.ones_like(f_n)
+        occ = ((f_n.abs() > 0) | (shear > 0)).to(force.dtype)
         pix = self.pixel_map.repeat(B)[: len(batch)] + batch * n_pix
         img_flat = force.new_zeros(B * n_pix, 3)
         img_flat.index_add_(0, pix, torch.stack([f_n, shear, occ], dim=1))
