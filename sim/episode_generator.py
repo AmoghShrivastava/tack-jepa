@@ -450,27 +450,36 @@ def generate_stage(
                         traj = "press"
                     elif stage == "b":
                         drop = NOMINAL_OBJECT_POS + np.array(
-                            [rng.uniform(-0.02, 0.03), rng.uniform(-0.02, 0.02), rng.uniform(-0.01, 0.02)]
+                            [rng.uniform(-0.02, 0.03), rng.uniform(-0.02, 0.02),
+                             rng.uniform(-0.01, 0.02)]
                         )
                         close_scale = rng.uniform(0.75, 1.25)
-                        dump = rollout_stage_b_episode(env, rng, drop, close_scale, perturb=perturb)
+                        dump = rollout_stage_b_episode(
+                            env, rng, drop, close_scale, perturb=perturb
+                        )
                         traj = "grasp"
                     else:  # stage c: mix press/grasp/slide trajectories (PRD §6.1)
                         traj = rng.choice(["press", "grasp", "slide"])
                         drop = NOMINAL_OBJECT_POS + np.array(
-                            [rng.uniform(-0.02, 0.03), rng.uniform(-0.02, 0.02), rng.uniform(-0.01, 0.02)]
+                            [rng.uniform(-0.02, 0.03), rng.uniform(-0.02, 0.02),
+                             rng.uniform(-0.01, 0.02)]
                         )
                         if traj == "press":
                             dump = rollout_stage_a_episode(env, rng, drop)
                         elif traj == "grasp":
                             close_scale = rng.uniform(0.75, 1.25)
-                            dump = rollout_stage_b_episode(env, rng, drop, close_scale, perturb=perturb)
+                            dump = rollout_stage_b_episode(
+                                env, rng, drop, close_scale, perturb=perturb
+                            )
                         else:
                             grip_scale = rng.uniform(*C_SLIDE_GRIP)
                             dump = rollout_stage_c_slide_episode(env, rng, drop, grip_scale)
                 except Exception as e:  # noqa: BLE001 — genuinely any solver failure
                     n_failed += 1
-                    print(f"{name}: {spec} FAILED ({type(e).__name__}: {e}) — skipping, rebuilding env")
+                    print(
+                        f"{name}: {spec} FAILED ({type(e).__name__}: {e}) "
+                        "— skipping, rebuilding env"
+                    )
                     # a NaN/solver exception can leave the scene's internal
                     # state corrupted; rebuild fresh rather than risk silently
                     # bad data on every subsequent episode of this variant

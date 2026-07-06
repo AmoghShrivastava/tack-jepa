@@ -133,7 +133,9 @@ def test_rasterize_occupancy_reflects_contact_not_constant():
     per-taxel CONTACT indicator, not a hardcoded constant (torch.ones_like)
     that would dominate the image's magnitude with zero information."""
     layout = TaxelLayout.load()
-    enc = TactileImageEncoder(layout=layout, dim=16, n_layers=1, heads=2, patch=4, node_out=8, global_dim=8)
+    enc = TactileImageEncoder(
+        layout=layout, dim=16, n_layers=1, heads=2, patch=4, node_out=8, global_dim=8
+    )
     n = layout.n_taxels
     batch = torch.zeros(n, dtype=torch.long)
 
@@ -154,7 +156,9 @@ def test_image_native_encoder_responds_to_different_contact_patterns():
     where the occupancy-channel bug swamped this signal to near-zero)."""
     layout = TaxelLayout.load()
     torch.manual_seed(0)
-    enc = TactileImageEncoder(layout=layout, dim=16, n_layers=1, heads=2, patch=4, node_out=8, global_dim=8)
+    enc = TactileImageEncoder(
+        layout=layout, dim=16, n_layers=1, heads=2, patch=4, node_out=8, global_dim=8
+    )
     enc.eval()
     n = layout.n_taxels
     batch = torch.zeros(n, dtype=torch.long)
