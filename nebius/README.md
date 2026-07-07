@@ -130,3 +130,18 @@ still applies to every instance from here on.
   ~26.4GB/46GB. Estimated savings: ~3.5 hours of wall-clock (roughly
   `image_native`'s remaining runtime, since it now overlaps with
   `reconstruction` instead of running before it).
+- **3-way concurrency attempted and reverted — negative result, logged
+  honestly.** Tried also launching `no_vicreg` concurrently at
+  `micro_batch=2` (vs the normal 4) to fit the remaining ~17GB VRAM headroom
+  alongside `image_native` + `reconstruction`. GPU utilization did rise to
+  100% (40GB/46GB used, no OOM), but real contention for compute (not just
+  memory) meant `no_vicreg` hadn't completed even its first 10-step log
+  interval after ~6 minutes — extrapolated, this would have taken 50+ hours,
+  far worse than the ~7.7h it takes running alone at full `micro_batch=4`.
+  Killed it (no checkpoint existed yet, nothing lost) and reverted to the
+  original plan: `no_vicreg` queued to auto-launch at full speed once
+  `reconstruction` finishes. Lesson: the `image_native` + `reconstruction`
+  pairing worked because `image_native`'s compute footprint is genuinely
+  tiny (a small ViT), not just its memory — pairing two full-size
+  graph-encoder jobs (or a memory-shrunk one) causes real compute
+  contention that isn't worth the reduced micro-batch inefficiency.
