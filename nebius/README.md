@@ -145,3 +145,34 @@ still applies to every instance from here on.
   tiny (a small ViT), not just its memory — pairing two full-size
   graph-encoder jobs (or a memory-shrunk one) causes real compute
   contention that isn't worth the reduced micro-batch inefficiency.
+- **All 5 variants finished training successfully** (baseline/no_fk/
+  reconstruction/no_vicreg via the graph encoder, image_native via the ViT
+  path), each completing its full 6000-step budget. `image_native`'s
+  training-time canary ended at 0.475 (down from 0.9996 at start) — a
+  strong signal the occupancy-channel fix resolved the Phase 6 collapse in
+  practice, not just in the unit tests.
+- **Second preemption — during the (non-critical) eval phase, after
+  training was already done.** Instance reclaimed again (console: "Stop
+  Instance" by "None"), ~2 hours downtime. No training data at risk (all 5
+  checkpoints were already complete and on disk); only the in-flight
+  `collapse_canary` diagnostic pass was interrupted mid-`baseline_stagec`
+  with zero results captured (killed before its first result printed).
+  Restarted the instance (new public IP), no code/checkpoint changes
+  needed, just reran the diagnostic pass.
+- **Eval-harness lesson learned the hard way:** the standard
+  `physics_probes_eval.py` pass (which trains fresh diagnostic probes) was
+  taking 1.5+ hours on `baseline_stagec` alone with no sign of finishing —
+  far slower than Phase 6's ~12-15min/variant, because Stage C's training
+  shard set is much larger (102 shards vs Stage A/B's much smaller set) and
+  the loader's shuffle-buffer warm-up dominates regardless of how many
+  probe-training steps are requested (reducing `--steps`/`--eval-batches`
+  did NOT help, confirming the bottleneck is data loading, not probe
+  training). Switched to the much lighter `collapse_canary.py` (a few
+  val-split batches only, no probe training) instead, which completes in
+  ~5-8 min/variant — sufficient to answer the primary open question (is
+  the `image_native` fix real, does `no_vicreg` collapse) without the
+  expensive full probe-regression pass. Also cost two rounds of lost
+  results to a background-tool timeout killing an SSH session before output
+  was flushed/redirected to a file — the working pattern is `nohup ... >
+  file.log 2>&1 &` with `disown`, never bare `run_in_background: true` for
+  anything longer than a couple minutes.
