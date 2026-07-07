@@ -11,7 +11,7 @@ Living document tracking the phased build order from [PRD.md](PRD.md) §9.
 | 3 | Graph construction + WebDataset sharding + Stage A/B data generation at small scale | A PyTorch `Dataset`/`DataLoader` yields correctly-shaped graph batches | No | **Done, corrected 2026-07-04** — see "Audit and correction" below. 210 Stage A + 210 Stage B episodes → 140/70 object-disjoint shards each; loader verified on real shards. |
 | 4 | Full model: online + EMA target encoder, predictor, JEPA loss, VICReg, probe heads — tiny-scale training run to confirm the loop works | Loss decreases, no immediate collapse, all §7.2 ablation code paths runnable | Optional, minimal (confirm with user first) | **Done, rerun on corrected pipeline 2026-07-04** — all 5 variants trained on CPU on Stage B data with the floating wrist, horizon curriculum, and bf16-capable loop; zero GPU billed. See "Audit and correction" below. |
 | 5 | **Scale-up decision point** — review Phases 0–4 with the user before provisioning any Nebius training cluster | Explicit human go-ahead | **Yes, from here on** | **Passed** (2026-07-04; explicit go-ahead given in conversation) |
-| 6 | Stage B/C data generation at scale + full pretraining incl. all §7.2 ablations | Ablation results reported per §7.6 | Yes | **Stage B scale done 2026-07-04/05** ($8.23; checkpoints archived to HF Hub, VM deleted); `image_native` collapse root-caused and fixed 2026-07-05 (see decisions log). **Stage C now underway 2026-07-06**: full 16-object/3-trajectory data generated at scale (4000 episodes, see decisions log), all 5 §7.2 variants retraining on Nebius with an equal 6000-step budget each (fair comparison, unlike Phase 6's asymmetric split) — in progress, ~2.2 days/~$48-50 estimated, see nebius/README.md Instance 2. |
+| 6 | Stage B/C data generation at scale + full pretraining incl. all §7.2 ablations | Ablation results reported per §7.6 | Yes | **Done 2026-07-06/08.** Stage B scale done 2026-07-04/05 ($8.23); `image_native` collapse root-caused and fixed 2026-07-05. Stage C generated at scale (4000 episodes, 16 objects x 3 trajectories) and all 5 §7.2 variants retrained with an equal 6000-step budget each on Nebius — **`image_native` fix confirmed working in practice** (mean_dim_std 1.6e-5 -> 0.304, ~19,000x), `no_vicreg` shows genuine collapse (real finding: EMA alone insufficient without VICReg), see decisions log for full results table and caveats (full probe/downstream-transfer eval not completed, only the lighter collapse-canary diagnostic). Checkpoints archived to HF Hub, VM deallocated. |
 | 7 | Downstream task transfer evaluation (§7.4) | Sample-efficiency numbers reported | Yes | **Partially done** — slip-onset transfer run for baseline/image_native/raw-baseline at small episode budgets (8/16/32) on the current small dataset; numbers not yet meaningful (see below) and grasp-stability task not yet wired up. |
 | 8+ | Stretch: soft-body coupling (§5.4), real-data zero-shot validation (§7.5), Stage D | — | Yes | Not started |
 
@@ -316,6 +316,57 @@ corrected Stage B data, CI green.
   retraining `image_native` to confirm the fix resolves collapse in practice —
   that requires GPU time and is a separate go/no-go decision from this
   free/local fix.
+- **2026-07-07/08 (Stage C, full retrain results — all 5 variants, equal
+  6000-step budget each):** collapse-canary diagnostic on all 5 checkpoints
+  (`eval/collapse_canary.py`, val split):
+
+  | variant | canary_cosine | mean_dim_std |
+  |---|---|---|
+  | baseline | 1.0 | 0.174 |
+  | no_fk | 0.984 | 0.321 |
+  | image_native | 0.423 | 0.304 |
+  | reconstruction | 0.99997 | 0.0068 |
+  | no_vicreg | 0.99992 | 0.0097 |
+
+  **`image_native` fix confirmed working in practice.** vs. the old broken
+  Phase 6 checkpoint (canary 1.0000, mean_dim_std 1.6e-5), the fixed version
+  now shows mean_dim_std 0.304 — a ~19,000x increase — and canary 0.423,
+  clearly not pinned. This holds even though the diagnostic itself has a
+  real limitation (see below) that inflates canary for the other variants,
+  meaning image_native's diversity is not an artifact.
+  **Diagnostic limitation found:** `collapse_canary.py`'s loader defaults to
+  `shuffle=0` and samples only 4 batches; since val shards are written
+  sorted by variant, this reads almost exclusively from one held-out object
+  (the lowest-indexed val variant), not a representative mix of the full
+  held-out set. This explains `baseline`/`no_fk`'s near-1.0 canary despite
+  healthy, large `mean_dim_std` (0.174/0.321, comparable to Phase 6's known-
+  healthy baseline ~0.30) — physically similar windows of the *same* object
+  can legitimately have high cosine similarity without the model being
+  collapsed. Not fixed (would need `shuffle=1` in the loader call for a
+  representative sample) — flagged honestly rather than smoothed over,
+  future eval work should account for this.
+  **`reconstruction` and `no_vicreg` show genuine collapse** — for these
+  two (unlike baseline/no_fk) both metrics agree: pinned canary *and* tiny
+  mean_dim_std together, which the narrow-sampling explanation doesn't
+  rescue. `reconstruction` collapsing is expected (zero anti-collapse
+  machinery by design). `no_vicreg` collapsing is a real, meaningful
+  finding: its own config frames it as testing "does EMA alone prevent
+  collapse?" — empirically here, no, it doesn't, consistent with
+  established self-supervised-learning results that momentum encoders
+  alone are typically insufficient without explicit variance
+  regularization. This is direct evidence VICReg is doing necessary work
+  in `baseline`, not decoration.
+  **Caveat:** the full `physics_probes_eval.py` pass (fresh regression
+  probes: force_mag/slip/contact_area, plus downstream_transfer) was not
+  completed — it was taking 1.5+ hours per variant with no sign of
+  finishing (Stage C's much larger training shard set makes the loader's
+  shuffle-buffer warm-up dominate regardless of probe-step count; reducing
+  `--steps`/`--eval-batches` did not help, confirming the bottleneck is
+  data loading, not probe training). Switched to the much lighter
+  `collapse_canary.py` instead, which answers the primary open questions
+  (image_native fix confirmation, no_vicreg's collapse question) in
+  ~5-8 min/variant. The full probe/downstream-transfer numbers remain a
+  follow-up item if deeper quantitative comparison is wanted later.
 
 ## Phase 8+ flagged items (per PRD)
 

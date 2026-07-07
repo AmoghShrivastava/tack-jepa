@@ -176,3 +176,24 @@ still applies to every instance from here on.
   was flushed/redirected to a file — the working pattern is `nohup ... >
   file.log 2>&1 &` with `disown`, never bare `run_in_background: true` for
   anything longer than a couple minutes.
+- **Final wrap-up:** all 5 checkpoints (+ metrics/config) archived to a new
+  private HF Hub repo `AmoghShrivastava1/tack-jepa-stagec-checkpoints`
+  (deliberately separate from the Phase 6 repo — these are two different
+  experiments, and the Phase 6 repo's *broken* `image_native` checkpoint is
+  the reference point the fix is compared against, so it was kept, not
+  overwritten). Verified all 5 `checkpoint.pt` + `metrics.jsonl` +
+  `resolved_config.yaml` present via `hf models list --recursive --tree`.
+  Instance deleted (disk + VM) after upload confirmed.
+- **Final cost tally**, reconstructed from console operation timestamps +
+  `uptime`: original run before first preemption ~10h compute; first
+  preemption downtime ~2h (storage-only); first restart session ~27.7h
+  compute (until second preemption); second preemption downtime ~2h
+  (storage-only); second restart session ~1.3h compute (through upload +
+  deallocation). **Total: ~39h compute × $0.89/hr ≈ $34.71, ~43h storage ×
+  $0.03/hr ≈ $1.29 — actual total ≈ $36** (±~$1-2 given the timestamp
+  reconstruction isn't to-the-minute precise). This came in *below* the
+  original ~$47-50 estimate despite two preemptions, mainly thanks to the
+  `image_native` + `reconstruction` concurrency optimization (~3.5h saved)
+  and the training itself running a bit faster than the conservative
+  planning rate — the preemption recoveries added time but negligible
+  extra cost (storage-only billing while stopped).
