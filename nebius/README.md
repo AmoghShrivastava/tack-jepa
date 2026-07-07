@@ -112,3 +112,21 @@ still applies to every instance from here on.
   checkpoint (confirmed in logs: "resumed from checkpoint at step 600"), GPU back
   to 100% utilization. No manual data loss beyond the ~50-100 uncheckpointed
   steps.
+- **SIGTERM handler added mid-sweep** (training/train.py): catches Nebius's
+  ~60s preemption warning and force-saves a checkpoint immediately instead of
+  waiting for the next `checkpoint_every` interval — verified with an in-
+  process `signal.raise_signal` test before deploying. Applied by copying the
+  updated file to the VM and doing a controlled restart of the in-progress
+  `no_fk` run (resumed cleanly from its existing checkpoint, ~90 steps lost)
+  so the rest of the sweep is protected.
+- **GPU utilization optimization**: `image_native` (a small ViT over a tiny
+  mosaic image) only uses ~1.5GB/46GB VRAM and a few % utilization — since
+  billing is per wall-clock hour regardless of utilization, ran `reconstruction`
+  concurrently alongside it as a second process (independent run_name/
+  checkpoint paths, no conflict) rather than waiting for the sequential sweep
+  script to get to it. Killed only the sequential wrapper script (leaving
+  `image_native`'s process untouched) and set up a small waiter script to
+  auto-launch `no_vicreg` once `reconstruction` exits. Combined VRAM usage
+  ~26.4GB/46GB. Estimated savings: ~3.5 hours of wall-clock (roughly
+  `image_native`'s remaining runtime, since it now overlaps with
+  `reconstruction` instead of running before it).
