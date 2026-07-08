@@ -368,6 +368,27 @@ corrected Stage B data, CI green.
   ~5-8 min/variant. The full probe/downstream-transfer numbers remain a
   follow-up item if deeper quantitative comparison is wanted later.
 
+- **2026-07-08 (Stage C full probe eval, Azure follow-up — in progress):**
+  the full `physics_probes_eval.py` pass flagged as a caveat above is now
+  underway on a dedicated Azure CPU VM (see `azure/README.md` for the
+  detailed log), since the local dev machine hit real memory limits running
+  the graph-encoder variants. `image_native` completed cleanly early on and
+  its results match the local-machine run to 5 decimal places on
+  canary/mean_dim_std, a good cross-environment consistency check. The other
+  4 variants (`baseline`/`no_fk`/`no_vicreg`/`reconstruction`) hit a genuine
+  memory leak in the probe-eval training loop (confirmed via kernel
+  OOM-killer logs, not just an undersized batch — a batch_size=8 retry still
+  leaked to 32GB over ~93 min rather than crashing instantly like
+  batch_size=32 did) — worked around for now by moving to a 128GB-RAM VM
+  rather than fixing the leak's root cause, an explicit user tradeoff given
+  Azure credit is not a constraint here. HF Hub repo holding the Stage C
+  checkpoints was also renamed from `tack-jepa-stagec-checkpoints` to
+  `tack-jepa` (still private) at the user's request. Root-causing and fixing
+  the actual leak (suspected: `physics_probes_eval.py`'s outer while-loop
+  reconstructing the WebDataset loader on every full pass over the shard set
+  without releasing the old one) remains a flagged follow-up item even after
+  this run completes, since the workaround doesn't scale indefinitely.
+
 ## Phase 8+ flagged items (per PRD)
 
 - Soft-body/MPM taxel substrate coupling to replace the rigid-contact + Gaussian-kernel force distribution approximation (PRD §5.4).

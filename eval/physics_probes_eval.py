@@ -58,6 +58,7 @@ def probe_eval(
     lr: float = 1e-3,
     device: str = "cpu",
     seed: int = 0,
+    batch_size: int | None = None,
 ) -> dict:
     torch.manual_seed(seed)
     cfg, models = load_run(run_dir, device)
@@ -67,7 +68,7 @@ def probe_eval(
     def loader_for(split, stride_mult=1):
         return make_loader(
             shard_urls(cfg["data"]["shard_dir"], split),
-            batch_size=cfg["data"]["batch_size"],
+            batch_size=batch_size or cfg["data"]["batch_size"],
             context_len=cfg["data"]["context_len"],
             horizon=cfg["data"]["horizon"],
             stride=cfg["data"]["stride"] * stride_mult,
@@ -138,8 +139,9 @@ def main():
     parser.add_argument("--steps", type=int, default=150)
     parser.add_argument("--eval-batches", type=int, default=30)
     parser.add_argument("--out", type=Path, default=None)
+    parser.add_argument("--batch-size", type=int, default=None)
     args = parser.parse_args()
-    report = probe_eval(args.run, args.steps, args.eval_batches)
+    report = probe_eval(args.run, args.steps, args.eval_batches, batch_size=args.batch_size)
     text = json.dumps(report, indent=2)
     print(text)
     out = args.out or (args.run / "probe_eval.json")
