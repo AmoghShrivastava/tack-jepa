@@ -73,9 +73,14 @@ practically unlimited credits").
   against `date`, corrected immediately and explicitly to the user rather
   than left standing.
 
-**Status: all 5 variants complete** (2026-07-09, full results + closing
-analysis in ROADMAP.md's decisions log). Not yet archived or torn down —
-resource group `tackjepa-eval-rg` remains live and billing until the user
-confirms deallocation/deletion (same shutdown discipline as the Nebius runs:
-never leave a provisioned VM running without an explicit stop decision
-logged here).
+**Status: all work complete, VM deallocated.** All 5 Stage C variants (150-step
+budget), the canary-shuffle mean-centering verification, and the matched-1000-
+step image_native/baseline AUROC-gap comparison all finished and are logged in
+ROADMAP.md's decisions log (2026-07-09). User confirmed deallocation once all
+planned work was done; `az vm deallocate -g tackjepa-eval-rg -n tackjepa-eval-vm`
+run 2026-07-09 — compute billing stops once deallocation completes, disk
+storage remains billed at a small rate until the VM/resource group is deleted
+(not done — kept around in case further eval work is needed later, same as
+resize discipline: `az vm start` on the same name/RG brings it back with
+checkpoints/data intact, public IP not guaranteed to be preserved on restart
+after deallocation).
