@@ -481,7 +481,54 @@ corrected Stage B data, CI green.
   `collapse_canary` and see whether that resolves the disagreement for
   `baseline`/`no_fk` specifically. Left as a scoped, well-defined next step
   rather than treated as solved.
-  `reconstruction` finish.
+
+  **Verified 2026-07-09 — hypothesis confirmed.** Ran a one-off check
+  (mean-center `z` before the same cosine-similarity computation, val split,
+  shuffle=1): `baseline` canary drops from **1.0000 → 0.0023**, `no_fk` from
+  **0.9831 → 0.0103** — both collapse to near-zero once the shared mean is
+  removed, confirming the representations are not actually collapsed.
+  `baseline`'s mean-vector norm (1505) dwarfs `no_fk`'s (54) and
+  `image_native`'s (5.7), explaining why this effect was so much more severe
+  for `baseline` specifically. **Conclusion: `baseline`/`no_fk`'s pinned
+  canary was always a diagnostic artifact of raw (non-mean-centered) cosine
+  similarity, not a sign of representational collapse** — `mean_dim_std`
+  was the reliable signal the whole time, the canary metric itself is
+  misleading for representations with a large shared mean component. Worth
+  fixing `collapse_canary`'s default behavior (or at least reporting both
+  raw and mean-centered canary going forward) as a small follow-up, not
+  done yet since it wasn't the ask.
+
+- **2026-07-09 (investigating the image_native vs. graph slip-AUROC gap):**
+  cheap ~30min sanity pass first, to rule out a dumb bug before spending
+  compute: confirmed `TactileImageEncoder`'s "per-taxel" node output is not
+  actually per-taxel-distinct — each 4x4-pixel patch token (patch=4 default,
+  336 tokens total for the 48x112 mosaic) is shared identically across all
+  taxels landing in it, ~6.7 taxels/patch on average (2244 taxels / 336
+  tokens). This is a deliberate, already-documented property of the ablation
+  (the resolution-loss point H2 is testing), not a bug. Plausible mechanism
+  for the AUROC gap: at only 150 probe-training steps, `image_native`'s
+  coarser, patch-shared representation may act as implicit spatial
+  smoothing that helps an undertrained shallow probe head, while the graph
+  encoder's genuinely per-taxel-distinct output gives the same undertrained
+  head more surface area to over/underfit. **Not confirmed** — could equally
+  be a training-budget artifact rather than a stable property. Testing this
+  now: rerunning `image_native` and `baseline` at 1000 probe-training steps
+  (up from 150) on the Azure VM (already provisioned, no new cost) — if the
+  gap shrinks substantially with more probe training, that supports the
+  smoothing-artifact hypothesis; if it persists, that's evidence for a real
+  representational difference.
+
+  **`image_native` @ 1000 steps result: the gap widened, not shrank.** Slip
+  AUROC rose from 0.878 (150 steps) to **0.9405** (1000 steps); force_mag R²
+  improved from -1.77 to -0.007 (near break-even). This is evidence
+  *against* the smoothing-artifact hypothesis — if the 150-step gap were
+  mainly an undertrained-probe effect, more training should have narrowed
+  it, not widened it. Looking more like a real representational advantage
+  for `image_native` on slip detection specifically. `baseline` @ 1000 steps
+  still running (started after `image_native` finished; expect a long wait
+  given its known leak-oscillation pattern already took ~90min at only 150
+  steps) — the actual matched-budget gap isn't confirmed until that number
+  is in.
 
 ## Phase 8+ flagged items (per PRD)
 
