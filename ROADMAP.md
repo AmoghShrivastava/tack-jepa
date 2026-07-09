@@ -397,8 +397,8 @@ corrected Stage B data, CI green.
   | image_native | -1.77 | 0.878 | -25.84 | 0.423 | 0.304 | ~17 min |
   | baseline | -0.08 | 0.463 | -14.88 | 1.0 | 0.174 | ~90 min |
   | no_fk | -0.19 | 0.591 | -192.77 | 0.984 | 0.321 | ~90 min |
-  | no_vicreg | pending | pending | pending | pending | pending | running |
-  | reconstruction | pending | pending | pending | pending | pending | queued |
+  | no_vicreg | -0.19 | 0.595 | -2.59 | 0.9999 | 0.0097 | ~90 min |
+  | reconstruction | pending | pending | pending | pending | pending | running |
 
   Early read (probe R² are all negative across every variant so far — worse
   than predicting the mean; expected at only 150 probe-training steps, not
