@@ -530,6 +530,26 @@ corrected Stage B data, CI green.
   steps) — the actual matched-budget gap isn't confirmed until that number
   is in.
 
+  **`baseline` @ 1000 steps result (final matched-budget comparison, ~8h15m
+  wall-clock on the Azure VM — the memory-leak-driven loader recreation makes
+  each pass slow, unrelated to the probe itself):** slip AUROC rose from
+  0.463 (150 steps) to **0.599** (1000 steps); force_mag R² improved from
+  -0.08 to -0.033; contact_area R² improved from -14.88 to -0.61. So more
+  probe budget helps `baseline` too, not just `image_native` — but the gap
+  only narrows from 0.415 (150-step: 0.878 vs 0.463) to 0.342 (1000-step:
+  0.9405 vs 0.599), not close to closing. **Conclusion: this is a real,
+  persistent representational difference, not primarily a training-budget
+  artifact.** `image_native`'s patch-shared spatial smoothing appears to
+  give it a genuine advantage for slip detection specifically — plausibly
+  because slip is inherently a spatially-smooth/coarse signal (whole-patch
+  micro-motion) that a coarser representation captures more directly, while
+  the graph encoder's fine-grained per-taxel output may be encoding
+  information at a resolution that isn't well-suited to this particular
+  downstream task. This is worth flagging as a real finding rather than a
+  bug to fix — the graph encoder is not "worse," it's differently suited;
+  slip detection favors image_native's inductive bias. Investigation (#2)
+  closed.
+
 ## Phase 8+ flagged items (per PRD)
 
 - Soft-body/MPM taxel substrate coupling to replace the rigid-contact + Gaussian-kernel force distribution approximation (PRD §5.4).
