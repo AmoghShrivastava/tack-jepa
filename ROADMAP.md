@@ -448,6 +448,39 @@ corrected Stage B data, CI green.
     canary is a reminder that "collapsed representation" and "totally
     useless for every downstream task" aren't the same claim — small
     signal can still leak through a mostly-collapsed representation.
+
+- **2026-07-09 (canary shuffle fix — correction to the earlier narrow-
+  sampling explanation):** wired `eval/collapse_canary.py`'s `canary_report`
+  to accept a `shuffle` param (previously hardcoded `shuffle=0`) and reran
+  all 5 variants with `shuffle=1` (representative sampling across the full
+  held-out set, not just the lowest-indexed val object):
+
+  | variant | canary (shuffle=0) | canary (shuffle=1) | Δ |
+  |---|---|---|---|
+  | baseline | 1.0 | 1.0 | none |
+  | no_fk | 0.984 | 0.983 | none |
+  | image_native | 0.423 | 0.416 | none |
+  | no_vicreg | 0.9999 | 0.9999 | none |
+  | reconstruction | 0.99997 | 0.99997 | none |
+
+  **The earlier narrow-sampling explanation for `baseline`/`no_fk`'s pinned
+  canary is wrong, or at least not the primary cause — correcting it rather
+  than leaving it stand.** Representative shuffled sampling changed nothing;
+  the canary stayed pinned near 1.0 for both variants regardless. Since their
+  `mean_dim_std` remains genuinely healthy (0.175/0.328, comparable to
+  `image_native`'s 0.305–0.421 range) even as their canary is pinned, the
+  most likely real explanation is a **methodological property of raw
+  pairwise cosine similarity, not a data-sampling artifact**: if embeddings
+  cluster around a large shared mean vector with real but comparatively
+  small per-dimension variation around it, cosine similarity (which is
+  dominated by the shared component) stays near 1.0 even though the
+  variation itself is genuine and would show up in a mean-centered
+  correlation measure. **Not yet verified** — this is an educated hypothesis
+  based on the dim_std/canary disagreement pattern, not a confirmed root
+  cause. A concrete follow-up: mean-center `z` before computing
+  `collapse_canary` and see whether that resolves the disagreement for
+  `baseline`/`no_fk` specifically. Left as a scoped, well-defined next step
+  rather than treated as solved.
   `reconstruction` finish.
 
 ## Phase 8+ flagged items (per PRD)
