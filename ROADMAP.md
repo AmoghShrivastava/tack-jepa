@@ -389,6 +389,26 @@ corrected Stage B data, CI green.
   without releasing the old one) remains a flagged follow-up item even after
   this run completes, since the workaround doesn't scale indefinitely.
 
+  **Results, filled in as each variant completes (150 probe-train steps,
+  30 eval batches, val split):**
+
+  | variant | force_mag R² | slip AUROC | contact_area R² | canary | dim_std | wall time |
+  |---|---|---|---|---|---|---|
+  | image_native | -1.77 | 0.878 | -25.84 | 0.423 | 0.304 | ~17 min |
+  | baseline | -0.08 | 0.463 | -14.88 | 1.0 | 0.174 | ~90 min |
+  | no_fk | -0.19 | 0.591 | -192.77 | 0.984 | 0.321 | ~90 min |
+  | no_vicreg | pending | pending | pending | pending | pending | running |
+  | reconstruction | pending | pending | pending | pending | pending | queued |
+
+  Early read (probe R² are all negative across every variant so far — worse
+  than predicting the mean; expected at only 150 probe-training steps, not
+  a claim about encoder quality by itself). `image_native` has the
+  strongest slip AUROC (0.878) despite the worst contact_area R²; `baseline`
+  and `no_fk` are both notably weak on slip (0.46/0.59, close to chance),
+  a real and currently unexplained gap worth investigating once all 5 are
+  in — full comparison and analysis deferred until `no_vicreg` and
+  `reconstruction` finish.
+
 ## Phase 8+ flagged items (per PRD)
 
 - Soft-body/MPM taxel substrate coupling to replace the rigid-contact + Gaussian-kernel force distribution approximation (PRD §5.4).

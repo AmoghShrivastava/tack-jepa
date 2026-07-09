@@ -73,9 +73,10 @@ practically unlimited credits").
   against `date`, corrected immediately and explicitly to the user rather
   than left standing.
 
-**Status as of last update:** eval running on the resized VM, in progress.
-Not yet archived or torn down — resource group `tackjepa-eval-rg` remains
-live and billing until the eval run completes and the user confirms
+**Status as of last update:** `image_native`, `baseline`, `no_fk` complete
+(results in ROADMAP.md's decisions log); `no_vicreg` running, `reconstruction`
+queued. Not yet archived or torn down — resource group `tackjepa-eval-rg`
+remains live and billing until the eval run completes and the user confirms
 deallocation/deletion (same shutdown discipline as the Nebius runs: never
 leave a provisioned VM running without an explicit stop decision logged
 here).
