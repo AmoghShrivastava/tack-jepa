@@ -38,7 +38,9 @@ def load_run(run_dir: Path, device: str = "cpu"):
 
 
 @torch.no_grad()
-def canary_report(run_dir: Path, n_batches: int = 4, split: str = "val") -> dict:
+def canary_report(
+    run_dir: Path, n_batches: int = 4, split: str = "val", shuffle: int = 0, seed: int = 0
+) -> dict:
     cfg, models = load_run(run_dir)
     loader = make_loader(
         shard_urls(cfg["data"]["shard_dir"], split),
@@ -46,6 +48,8 @@ def canary_report(run_dir: Path, n_batches: int = 4, split: str = "val") -> dict
         context_len=cfg["data"]["context_len"],
         horizon=cfg["data"]["horizon"],
         stride=cfg["data"]["stride"] * 4,  # spread windows out
+        shuffle=shuffle,
+        seed=seed,
     )
     latents = []
     for i, batch in enumerate(loader):
@@ -69,8 +73,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", type=Path, required=True)
     parser.add_argument("--split", default="val")
+    parser.add_argument("--shuffle", type=int, default=0)
     args = parser.parse_args()
-    print(json.dumps(canary_report(args.run, split=args.split), indent=2))
+    print(json.dumps(canary_report(args.run, split=args.split, shuffle=args.shuffle), indent=2))
 
 
 if __name__ == "__main__":
