@@ -398,15 +398,56 @@ corrected Stage B data, CI green.
   | baseline | -0.08 | 0.463 | -14.88 | 1.0 | 0.174 | ~90 min |
   | no_fk | -0.19 | 0.591 | -192.77 | 0.984 | 0.321 | ~90 min |
   | no_vicreg | -0.19 | 0.595 | -2.59 | 0.9999 | 0.0097 | ~90 min |
-  | reconstruction | pending | pending | pending | pending | pending | running |
+  | reconstruction | -0.28 | 0.652 | -1.26 | 0.99997 | 0.0068 | ~90 min |
 
-  Early read (probe R² are all negative across every variant so far — worse
-  than predicting the mean; expected at only 150 probe-training steps, not
-  a claim about encoder quality by itself). `image_native` has the
-  strongest slip AUROC (0.878) despite the worst contact_area R²; `baseline`
-  and `no_fk` are both notably weak on slip (0.46/0.59, close to chance),
-  a real and currently unexplained gap worth investigating once all 5 are
-  in — full comparison and analysis deferred until `no_vicreg` and
+  **All 5 variants complete (2026-07-09). Closing analysis:**
+
+  - **Every force_mag/contact_area R² is negative, across all 5 variants,
+    no exceptions.** This is consistent with (and expected from) only
+    150 probe-training steps on a frozen encoder — a fresh linear/shallow
+    probe head genuinely needs more steps to beat a mean-predictor
+    baseline on continuous regression targets. Read this as "the probe
+    heads are undertrained," not as "the encoders carry no useful
+    signal" — slip AUROC (a classification metric, more forgiving of an
+    undertrained head) is the more informative comparison at this probe
+    budget.
+  - **Slip AUROC shows a real, unexplained split: `image_native` (0.878)
+    is far ahead of all 4 graph-encoder variants (0.463–0.652).** This
+    is the single most surprising finding in this eval and is reported
+    plainly rather than smoothed over (PRD §7.6) — it runs counter to
+    the naive expectation that the graph encoder's exact per-taxel
+    geometry should make slip easier to detect than a rasterized image
+    mosaic. Two honest candidate explanations, neither yet confirmed:
+    (a) the image representation's fixed 2D grid may incidentally act as
+    a smoothing/regularizing inductive bias that suits a shallow,
+    undertrained probe head better than the graph's higher-dimensional
+    per-node output; (b) this could be an artifact of the specific 150
+    probe-training steps landing image_native's probe in a better basin
+    by chance, not a stable property of the representation. Distinguishing
+    these needs either a longer probe-training budget or multiple seeds
+    — flagged as a follow-up, not resolved here.
+  - **Canary/dim_std numbers here are near-identical to the earlier
+    `collapse_canary.py` pass** (baseline 1.0/1.0, no_fk 0.984/0.984,
+    no_vicreg 0.9999/0.99992, reconstruction 0.99997/0.99997) — this is
+    *expected*, not a new confirmation: `physics_probes_eval.py`'s canary
+    field is computed by calling the same `collapse_canary.py` routine
+    internally (still `shuffle=0`, narrow single-object sampling), not by
+    reusing this eval's own representative `shuffle=1` probe-training
+    loader. So this run does **not** independently corroborate or
+    complicate the earlier narrow-sampling explanation for `baseline`/
+    `no_fk`'s pinned canary despite healthy dim_std — it's the same
+    diagnostic re-run, correctly reproducing the same number. A genuine
+    independent check would require wiring `canary_report` to accept a
+    `shuffle=1` loader, which it currently doesn't — left as a concrete,
+    scoped follow-up rather than a vague TODO.
+  - **`no_vicreg` and `reconstruction` remain the two genuinely collapsed
+    variants** (canary ≈1.0 *and* dim_std ≈0.007–0.01 together, unlike
+    baseline/no_fk's canary/dim_std disagreement) — this full eval adds
+    no new evidence against that conclusion; if anything `reconstruction`'s
+    relatively better slip AUROC (0.652) despite being collapsed on the
+    canary is a reminder that "collapsed representation" and "totally
+    useless for every downstream task" aren't the same claim — small
+    signal can still leak through a mostly-collapsed representation.
   `reconstruction` finish.
 
 ## Phase 8+ flagged items (per PRD)
