@@ -4,97 +4,135 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TacK-JEPA — force-native tactile world model</title>
-<meta name="description" content="A kinematically-grounded, force-native world model for articulated multi-taxel tactile sensing. Simulation-only research.">
+<meta name="description" content="A kinematically-grounded, force-native world model for articulated multi-taxel tactile sensing. Simulation-only research. Part of Tenace Labs.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#ffffff; --fg:#0a0a0a; --mid:#555; --line:#0a0a0a; --panel:#f5f5f5; --accent:#0a0a0a;
+    --fg:#101316; --mid:#5c6369; --line:rgba(16,19,22,0.10); --accent:#1e6b5a;
+    --panel:#ffffff; --panel-line:rgba(16,19,22,0.08);
   }
   *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);
-    font-family:"IBM Plex Mono","SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+  html,body{margin:0;padding:0;color:var(--fg);
+    font-family:"Inter",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     -webkit-font-smoothing:antialiased;}
+  body{
+    background-image:
+      radial-gradient(circle at 16% 18%, rgba(30,107,90,0.12), rgba(0,0,0,0) 448px),
+      linear-gradient(140deg, #f8f7f2 0%, #f0efe8 54%, #e8eee9 100%);
+    background-color:#f0efe8;
+    background-attachment:fixed;
+  }
   a{color:var(--fg);}
   .wrap{max-width:1040px;margin:0 auto;padding:0 24px;}
 
-  header.hero{padding:96px 0 64px;border-bottom:1px solid var(--line);}
-  .kicker{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--mid);margin-bottom:18px;}
-  h1{font-size:clamp(28px,4vw,46px);line-height:1.15;margin:0 0 22px;font-weight:600;max-width:900px;}
-  .lede{font-size:16px;line-height:1.65;color:#222;max-width:720px;margin:0 0 8px;}
+  /* top nav — matches tenacelabs.com */
+  .topnav{border-bottom:1px solid var(--line);}
+  .topnav .wrap{display:flex;align-items:center;justify-content:space-between;padding:18px 24px;}
+  .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--fg);}
+  .brand img{width:28px;height:28px;display:block;}
+  .brand span{font-size:16px;font-weight:700;letter-spacing:-.01em;}
+  .brand:hover{opacity:.75;}
+  .subsite-tag{font-size:12px;color:var(--mid);letter-spacing:.02em;}
+
+  header.hero{padding:88px 0 56px;}
+  h1{font-size:clamp(28px,4vw,44px);line-height:1.18;margin:0 0 20px;font-weight:800;max-width:880px;letter-spacing:-.01em;}
+  .lede{font-size:16px;line-height:1.65;color:#2b2f33;max-width:700px;margin:0 0 8px;}
   .lede + .lede{color:var(--mid);}
-  .cta-row{display:flex;gap:12px;margin-top:28px;flex-wrap:wrap;}
-  .cta{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:1px solid var(--line);
-       border-radius:6px;text-decoration:none;font-size:13.5px;font-weight:600;color:var(--fg);
-       background:var(--bg);transition:background .15s,color .15s;}
-  .cta:hover{background:var(--fg);color:#fff;}
-  .cta svg text{fill:currentColor;}
+  .cta-row{display:flex;gap:12px;margin-top:30px;flex-wrap:wrap;}
+  .cta{display:inline-flex;align-items:center;gap:8px;padding:11px 20px;border:1px solid var(--line);
+       border-radius:10px;text-decoration:none;font-size:13.5px;font-weight:600;color:var(--fg);
+       background:var(--panel);transition:background .15s,color .15s,border-color .15s;
+       box-shadow:0 1px 2px rgba(16,19,22,0.04);}
+  .cta:hover{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .cta.primary{background:var(--fg);color:#fff;border-color:var(--fg);}
+  .cta.primary:hover{background:var(--accent);border-color:var(--accent);}
 
-  section{padding:64px 0;border-bottom:1px solid var(--line);}
-  h2{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--mid);margin:0 0 28px;font-weight:600;}
+  section{padding:56px 0;border-top:1px solid var(--line);}
+  header.hero{border-top:none;}
+  h2{font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mid);margin:0 0 26px;font-weight:700;}
 
-  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);}
-  .stat{background:var(--bg);padding:24px 20px;}
-  .stat .num{font-size:30px;font-weight:700;line-height:1.1;}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+  .stat{background:var(--panel);border:1px solid var(--panel-line);border-radius:14px;padding:22px 20px;
+        box-shadow:0 1px 2px rgba(16,19,22,0.04);}
+  .stat .num{font-size:28px;font-weight:800;line-height:1.1;color:var(--fg);}
   .stat .label{font-size:12.5px;color:var(--mid);margin-top:10px;line-height:1.5;}
   @media (max-width:820px){.stats{grid-template-columns:1fr;}}
 
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);}
-  .card{background:var(--bg);padding:26px 24px;}
-  .card h3{margin:0 0 10px;font-size:15px;}
-  .card p{margin:0;font-size:13.5px;line-height:1.6;color:#333;}
-  .card .fig{font-size:26px;font-weight:700;margin:10px 0 4px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .card{background:var(--panel);border:1px solid var(--panel-line);border-radius:14px;padding:24px 22px;
+        box-shadow:0 1px 2px rgba(16,19,22,0.04);}
+  .card h3{margin:0 0 10px;font-size:15px;font-weight:700;}
+  .card p{margin:0;font-size:13.5px;line-height:1.6;color:#3a3f43;}
+  .card .fig{font-size:25px;font-weight:800;margin:10px 0 4px;color:var(--accent);}
   .card .cap{font-size:12px;color:var(--mid);}
   @media (max-width:820px){.grid2{grid-template-columns:1fr;}}
 
   table{width:100%;border-collapse:collapse;font-size:13px;}
-  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid #ddd;}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--panel-line);}
   th{color:var(--mid);font-weight:600;text-transform:uppercase;font-size:11px;letter-spacing:.06em;}
   tr:last-child td{border-bottom:none;}
   td.hi{font-weight:700;}
 
-  .note{font-size:12.5px;color:var(--mid);line-height:1.6;margin-top:18px;padding-top:18px;border-top:1px dashed #ccc;}
+  .note{font-size:12.5px;color:var(--mid);line-height:1.6;margin-top:18px;padding-top:18px;border-top:1px dashed var(--panel-line);}
 
   /* demo */
-  .demo-shell{border:1px solid var(--line);}
-  .demo-head{padding:22px 24px;border-bottom:1px solid var(--line);}
+  .demo-shell{border:1px solid var(--panel-line);border-radius:16px;overflow:hidden;background:var(--panel);
+              box-shadow:0 1px 3px rgba(16,19,22,0.06);}
+  .demo-head{padding:22px 24px;border-bottom:1px solid var(--panel-line);}
+  .demo-head strong{font-size:14.5px;}
   .demo-head p{margin:6px 0 0;font-size:13px;color:var(--mid);line-height:1.55;}
-  .tabs{display:flex;border-bottom:1px solid var(--line);}
-  .tab{flex:1;padding:16px;text-align:center;font-size:13px;background:var(--bg);border:none;
-       border-right:1px solid var(--line);cursor:pointer;color:var(--mid);font-family:inherit;}
-  .tab:last-child{border-right:none;}
-  .tab.active{background:var(--fg);color:#fff;font-weight:600;}
+  .tabs{display:flex;border-bottom:1px solid var(--panel-line);background:rgba(16,19,22,0.02);}
+  .tab{flex:1;padding:14px;text-align:center;font-size:13px;background:transparent;border:none;
+       cursor:pointer;color:var(--mid);font-family:inherit;font-weight:500;transition:background .15s,color .15s;}
+  .tab.active{background:var(--fg);color:#fff;font-weight:700;}
   .demo-body{display:grid;grid-template-columns:2fr 1fr;}
-  .demo-body img{width:100%;display:block;border-right:1px solid var(--line);}
+  .demo-body img{width:100%;display:block;border-right:1px solid var(--panel-line);background:#fff;}
   .demo-stats{padding:24px;}
-  .demo-stats .row{padding:14px 0;border-bottom:1px solid #e5e5e5;}
+  .demo-stats .row{padding:14px 0;border-bottom:1px solid var(--panel-line);}
   .demo-stats .row:last-child{border-bottom:none;}
   .demo-stats .k{font-size:11px;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;}
-  .demo-stats .v{font-size:22px;font-weight:700;margin-top:4px;}
-  .badge{display:inline-block;font-size:11px;letter-spacing:.04em;border:1px solid var(--fg);border-radius:5px;
-         padding:4px 10px;margin-top:16px;color:var(--fg);}
-  @media (max-width:720px){.demo-body{grid-template-columns:1fr;}.demo-body img{border-right:none;border-bottom:1px solid var(--line);}}
+  .demo-stats .v{font-size:22px;font-weight:800;margin-top:4px;}
+  .badge{display:inline-block;font-size:11px;letter-spacing:.04em;border:1px solid var(--accent);border-radius:999px;
+         padding:5px 12px;margin-top:16px;color:var(--accent);font-weight:600;}
+  @media (max-width:720px){.demo-body{grid-template-columns:1fr;}.demo-body img{border-right:none;border-bottom:1px solid var(--panel-line);}}
 
-  .scrub{padding:16px 20px;border-top:1px solid var(--line);border-right:1px solid var(--line);}
-  .scrub input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:2px;background:var(--fg);outline:none;}
-  .scrub input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--fg);cursor:pointer;}
-  .scrub input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--fg);cursor:pointer;border:none;}
+  .scrub{padding:16px 20px;border-top:1px solid var(--panel-line);}
+  .scrub input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:3px;border-radius:2px;background:var(--line);outline:none;}
+  .scrub input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer;}
+  .scrub input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer;border:none;}
   .scrub-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--mid);margin-top:8px;text-transform:uppercase;letter-spacing:.04em;}
 
-  .demo-explainer{font-size:13px;color:#333;line-height:1.65;max-width:760px;margin:20px 0 0;}
+  .demo-explainer{font-size:13px;color:#3a3f43;line-height:1.65;max-width:760px;margin:20px 0 0;}
   .dot-legend{display:inline-block;width:9px;height:9px;border-radius:50%;background:#17becf;margin:0 1px;}
 
-  footer{padding:40px 0 80px;}
-  footer p{font-size:12.5px;color:var(--mid);line-height:1.7;}
-  code{background:var(--panel);padding:1px 6px;border-radius:3px;font-size:12px;}
+  footer{padding:36px 0 72px;border-top:1px solid var(--line);}
+  footer .wrap{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+  footer p{font-size:12.5px;color:var(--mid);line-height:1.7;margin:0;max-width:640px;}
+  footer .brand span{font-size:13px;}
+  footer .brand img{width:20px;height:20px;}
+  code{background:rgba(16,19,22,0.05);padding:1px 6px;border-radius:4px;font-size:12px;}
 </style>
 </head>
 <body>
+
+<nav class="topnav">
+  <div class="wrap">
+    <a class="brand" href="https://tenacelabs.com" aria-label="Back to Tenace Labs">
+      <img src="assets/tenace-labs-logo.png" alt="Tenace Labs logo">
+      <span>Tenace Labs</span>
+    </a>
+    <span class="subsite-tag">TacK-JEPA</span>
+  </div>
+</nav>
 
 <header class="hero">
   <div class="wrap">
     <h1>Introducing TacK-JEPA: JEPA Model for Robot Tactility</h1>
     <p class="lede">TacK-JEPA gives a robot hand model the exact 3D position of every one of its tactile sensors, computed directly from joint geometry — no vision model required to guess where a touch happened.</p>
     <div class="cta-row">
-      <a class="cta" href="https://github.com/AmoghShrivastava/tack-jepa" target="_blank" rel="noopener">
+      <a class="cta primary" href="https://github.com/AmoghShrivastava/tack-jepa" target="_blank" rel="noopener">
         <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
         GitHub
       </a>
@@ -106,56 +144,7 @@
   </div>
 </header>
 
-<section>
-  <div class="wrap">
-    <h2>System, in numbers</h2>
-    <div class="stats">
-      <div class="stat"><div class="num">1e-5</div><div class="label">forward-kinematics agreement with the underlying physics solver</div></div>
-      <div class="stat"><div class="num">53 / 53</div><div class="label">unit tests passing — kinematics, force conservation, model components</div></div>
-      <div class="stat"><div class="num">18–25×</div><div class="label">more embedding variance retained than architecture variants without the full training objective</div></div>
-    </div>
-  </div>
-</section>
-
-<section>
-  <div class="wrap">
-    <h2>Built for a different class of tactile hardware</h2>
-    <p style="font-size:13.5px;color:#333;line-height:1.6;max-width:760px;margin:0;">
-      Most tactile sensing today comes from one or two optical sensors (like GelSight or
-      DIGIT) mounted at a fingertip, imaged like a tiny camera. TacK-JEPA is built for a
-      structurally different kind of hardware: an articulated hand covered in a distributed
-      array of independent force-sensing elements ("taxels") spread across every finger and
-      the palm, each tied to a joint-tracked link — the sensing approach used by devices like
-      <strong>OSMO's</strong> open-source tactile glove. Because every taxel's position is
-      pinned to a joint encoder reading, its exact 3D location is known outright rather than
-      inferred from an image, which is the property this model is built to exploit directly.
-    </p>
-  </div>
-</section>
-
-<section>
-  <div class="wrap">
-    <h2>What does kinematic grounding offer?</h2>
-    <p style="font-size:13.5px;color:#333;line-height:1.6;max-width:760px;margin:0 0 28px;">
-      Controlled comparison against an otherwise-identical model with the exact 3D taxel
-      geometry removed, evaluated on grasps the model never trained on.
-    </p>
-    <div class="grid2">
-      <div class="card">
-        <h3>Per-taxel force estimation</h3>
-        <div class="fig">31% lower error</div>
-        <div class="cap">than the same model without kinematic grounding.</div>
-      </div>
-      <div class="card">
-        <h3>Contact area estimation</h3>
-        <div class="fig">3.2&times; lower error</div>
-        <div class="cap">than the same model without kinematic grounding.</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section id="demo" style="border-bottom:none;">
+<section id="demo">
   <div class="wrap">
     <h2>Try it — step through real grasp episodes</h2>
     <div class="demo-shell">
@@ -193,9 +182,62 @@
   </div>
 </section>
 
+<section>
+  <div class="wrap">
+    <h2>System, in numbers</h2>
+    <div class="stats">
+      <div class="stat"><div class="num">1e-5</div><div class="label">forward-kinematics agreement with the underlying physics solver</div></div>
+      <div class="stat"><div class="num">53 / 53</div><div class="label">unit tests passing — kinematics, force conservation, model components</div></div>
+      <div class="stat"><div class="num">18–25×</div><div class="label">more embedding variance retained than architecture variants without the full training objective</div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Built for a different class of tactile hardware</h2>
+    <p style="font-size:13.5px;color:#3a3f43;line-height:1.6;max-width:760px;margin:0;">
+      Most tactile sensing today comes from one or two optical sensors (like GelSight or
+      DIGIT) mounted at a fingertip, imaged like a tiny camera. TacK-JEPA is built for a
+      structurally different kind of hardware: an articulated hand covered in a distributed
+      array of independent force-sensing elements ("taxels") spread across every finger and
+      the palm, each tied to a joint-tracked link — the sensing approach used by devices like
+      <strong>OSMO's</strong> open-source tactile glove. Because every taxel's position is
+      pinned to a joint encoder reading, its exact 3D location is known outright rather than
+      inferred from an image, which is the property this model is built to exploit directly.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>What does kinematic grounding offer?</h2>
+    <p style="font-size:13.5px;color:#3a3f43;line-height:1.6;max-width:760px;margin:0 0 28px;">
+      Controlled comparison against an otherwise-identical model with the exact 3D taxel
+      geometry removed, evaluated on grasps the model never trained on.
+    </p>
+    <div class="grid2">
+      <div class="card">
+        <h3>Per-taxel force estimation</h3>
+        <div class="fig">31% lower error</div>
+        <div class="cap">than the same model without kinematic grounding.</div>
+      </div>
+      <div class="card">
+        <h3>Contact area estimation</h3>
+        <div class="fig">3.2&times; lower error</div>
+        <div class="cap">than the same model without kinematic grounding.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <footer>
   <div class="wrap">
     <p>TacK-JEPA is an independent research project testing whether exact kinematic grounding improves tactile world models, built and evaluated entirely in simulation with no physical hardware.</p>
+    <a class="brand" href="https://tenacelabs.com">
+      <img src="assets/tenace-labs-logo.png" alt="Tenace Labs logo">
+      <span>Tenace Labs</span>
+    </a>
   </div>
 </footer>
 
