@@ -61,3 +61,11 @@ generators), `data/` (graph construction, WebDataset sharding), `models/`
 horizon curriculum, YAML configs), `eval/` (physics probes, downstream
 transfer, collapse canary), `docker/` (CPU sim image, GPU train image),
 `nebius/` (compute provisioning — **gated behind Phase 5**), `tests/`, `docs/`.
+
+## License
+
+MIT — see [LICENSE](LICENSE). Third-party Allegro Hand URDF/mesh assets under
+`assets/urdf/` are vendored from DexSuite/SimLab and remain under their
+original licenses (see the `LICENSE`/`DEX_URDF_LICENSE` files in that
+directory). Model weights on Hugging Face are also released under MIT;
+the training data is not released.

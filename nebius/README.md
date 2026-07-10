@@ -35,11 +35,11 @@ still applies to every instance from here on.
   bandwidth/NVLink advantages target much larger models. L40S is roughly a third the
   cost of H100 ($2.15/hr) and should be more than sufficient — this run's actual
   purpose is to get real steps/sec numbers to confirm that.
-- **Instance ID:** `computeinstance-e00by75pxht27swrrb`, public IP `89.169.99.205`.
+- **Instance ID:** (redacted), public IP (redacted).
 - **Deallocate command (run the moment this instance is no longer needed):**
   Console: VM overview page → "..." menu → Stop, then Delete once confirmed done.
   (CLI equivalent, if `nebius` CLI gets set up later: `nebius compute instance stop
-  --id computeinstance-e00by75pxht27swrrb`.)
+  --id <instance-id>`.)
 - **Preemption event:** instance was reclaimed by Nebius mid-sweep (~4.5 hours in, during
   the `reconstruction` variant) — confirmed via console (Stop Instance operation) and
   GPU/CPU metrics dropping to idle, not a training bug. `baseline`/`no_fk`/`image_native`
@@ -80,11 +80,11 @@ still applies to every instance from here on.
   from 200 GiB last time — Stage C's shards are larger, 1.4GB vs 113MB).
 - **Live price at provisioning (2026-07-06, confirmed in console):** compute
   $0.89/hr + storage $0.03/hr (250GiB) = **$0.92/hr total**.
-- **Instance ID:** `computeinstance-e00z5mfrpz1d5v7s6b`, public IP `89.169.103.86`.
+- **Instance ID:** (redacted), public IP (redacted).
 - **Deallocate command (run the moment this instance is no longer needed):**
   Console: VM overview page → Settings tab → "Delete virtual machine" (deletes VM
   + disk together, confirmed by name). CLI equivalent if set up:
-  `nebius compute instance delete --id computeinstance-e00z5mfrpz1d5v7s6b`.
+  `nebius compute instance delete --id <instance-id>`.
 - **Training budget:** all 5 §7.2 variants (baseline, no_fk, image_native [with the
   occupancy-channel fix], reconstruction, no_vicreg) at an **equal 6000-step budget
   each** (30,000 variant-steps total) — deliberately equal this time for a fair
@@ -106,7 +106,7 @@ still applies to every instance from here on.
   beforehand (unaffected); `no_fk_stagec` was interrupted around step ~650-700,
   with its last checkpoint saved at step 600 (`checkpoint_every=150` limited the
   loss to under 100 steps). Restarted the same instance via console — got a new
-  public IP (89.169.103.86 -> 89.169.103.53), disk/checkpoints intact. Relaunched
+  public IP (redacted), disk/checkpoints intact. Relaunched
   the remaining variants (`no_fk`, `image_native`, `reconstruction`, `no_vicreg`)
   via a new `run_stagec_sweep2.sh`; `no_fk` auto-resumed cleanly from its step-600
   checkpoint (confirmed in logs: "resumed from checkpoint at step 600"), GPU back

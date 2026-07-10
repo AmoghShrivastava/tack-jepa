@@ -24,3 +24,6 @@ datasets/
 Thumbs.db
 .vscode/
 .idea/
+
+# Cloudflare Pages local cache (contains account ID)
+.wrangler/

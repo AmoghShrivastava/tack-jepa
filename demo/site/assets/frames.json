@@ -1,0 +1,677 @@
+{
+  "1": [
+    {
+      "step": 8,
+      "force": 4.29,
+      "active": 50,
+      "stage": "contact forming",
+      "img": "assets/frames/ep1_f0.png?v=1783689603"
+    },
+    {
+      "step": 11,
+      "force": 5.53,
+      "active": 56,
+      "stage": "contact forming",
+      "img": "assets/frames/ep1_f1.png?v=1783689603"
+    },
+    {
+      "step": 15,
+      "force": 4.56,
+      "active": 32,
+      "stage": "contact forming",
+      "img": "assets/frames/ep1_f2.png?v=1783689603"
+    },
+    {
+      "step": 19,
+      "force": 2.77,
+      "active": 51,
+      "stage": "contact forming",
+      "img": "assets/frames/ep1_f3.png?v=1783689603"
+    },
+    {
+      "step": 22,
+      "force": 1.54,
+      "active": 50,
+      "stage": "contact forming",
+      "img": "assets/frames/ep1_f4.png?v=1783689603"
+    },
+    {
+      "step": 26,
+      "force": 1.32,
+      "active": 44,
+      "stage": "contact forming",
+      "img": "assets/frames/ep1_f5.png?v=1783689603"
+    },
+    {
+      "step": 30,
+      "force": 1.3,
+      "active": 44,
+      "stage": "contact forming",
+      "img": "assets/frames/ep1_f6.png?v=1783689603"
+    },
+    {
+      "step": 33,
+      "force": 1.3,
+      "active": 42,
+      "stage": "contact forming",
+      "img": "assets/frames/ep1_f7.png?v=1783689603"
+    },
+    {
+      "step": 37,
+      "force": 0.94,
+      "active": 31,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep1_f8.png?v=1783689603"
+    },
+    {
+      "step": 41,
+      "force": 1.28,
+      "active": 43,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep1_f9.png?v=1783689603"
+    },
+    {
+      "step": 44,
+      "force": 1.26,
+      "active": 41,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep1_f10.png?v=1783689603"
+    },
+    {
+      "step": 48,
+      "force": 1.22,
+      "active": 38,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep1_f11.png?v=1783689603"
+    },
+    {
+      "step": 52,
+      "force": 1.19,
+      "active": 35,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep1_f12.png?v=1783689603"
+    },
+    {
+      "step": 56,
+      "force": 4.12,
+      "active": 90,
+      "stage": "peak grasp",
+      "img": "assets/frames/ep1_f13.png?v=1783689603"
+    },
+    {
+      "step": 59,
+      "force": 0.96,
+      "active": 28,
+      "stage": "release",
+      "img": "assets/frames/ep1_f14.png?v=1783689603"
+    },
+    {
+      "step": 63,
+      "force": 0.97,
+      "active": 29,
+      "stage": "release",
+      "img": "assets/frames/ep1_f15.png?v=1783689603"
+    },
+    {
+      "step": 66,
+      "force": 0.97,
+      "active": 25,
+      "stage": "release",
+      "img": "assets/frames/ep1_f16.png?v=1783689603"
+    },
+    {
+      "step": 70,
+      "force": 0.97,
+      "active": 24,
+      "stage": "release",
+      "img": "assets/frames/ep1_f17.png?v=1783689603"
+    },
+    {
+      "step": 74,
+      "force": 0.79,
+      "active": 21,
+      "stage": "release",
+      "img": "assets/frames/ep1_f18.png?v=1783689603"
+    }
+  ],
+  "2": [
+    {
+      "step": 39,
+      "force": 21.34,
+      "active": 97,
+      "stage": "contact forming",
+      "img": "assets/frames/ep2_f0.png?v=1783689603"
+    },
+    {
+      "step": 42,
+      "force": 24.4,
+      "active": 96,
+      "stage": "contact forming",
+      "img": "assets/frames/ep2_f1.png?v=1783689603"
+    },
+    {
+      "step": 46,
+      "force": 24.36,
+      "active": 92,
+      "stage": "contact forming",
+      "img": "assets/frames/ep2_f2.png?v=1783689603"
+    },
+    {
+      "step": 50,
+      "force": 24.37,
+      "active": 94,
+      "stage": "contact forming",
+      "img": "assets/frames/ep2_f3.png?v=1783689603"
+    },
+    {
+      "step": 53,
+      "force": 24.76,
+      "active": 96,
+      "stage": "contact forming",
+      "img": "assets/frames/ep2_f4.png?v=1783689603"
+    },
+    {
+      "step": 57,
+      "force": 23.55,
+      "active": 99,
+      "stage": "contact forming",
+      "img": "assets/frames/ep2_f5.png?v=1783689603"
+    },
+    {
+      "step": 61,
+      "force": 24.27,
+      "active": 96,
+      "stage": "contact forming",
+      "img": "assets/frames/ep2_f6.png?v=1783689603"
+    },
+    {
+      "step": 64,
+      "force": 24.27,
+      "active": 96,
+      "stage": "contact forming",
+      "img": "assets/frames/ep2_f7.png?v=1783689603"
+    },
+    {
+      "step": 68,
+      "force": 24.28,
+      "active": 97,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep2_f8.png?v=1783689603"
+    },
+    {
+      "step": 72,
+      "force": 24.89,
+      "active": 98,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep2_f9.png?v=1783689603"
+    },
+    {
+      "step": 75,
+      "force": 25.06,
+      "active": 96,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep2_f10.png?v=1783689603"
+    },
+    {
+      "step": 79,
+      "force": 24.92,
+      "active": 98,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep2_f11.png?v=1783689603"
+    },
+    {
+      "step": 83,
+      "force": 24.32,
+      "active": 96,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep2_f12.png?v=1783689603"
+    },
+    {
+      "step": 87,
+      "force": 25.41,
+      "active": 97,
+      "stage": "peak grasp",
+      "img": "assets/frames/ep2_f13.png?v=1783689603"
+    },
+    {
+      "step": 90,
+      "force": 24.63,
+      "active": 98,
+      "stage": "release",
+      "img": "assets/frames/ep2_f14.png?v=1783689603"
+    },
+    {
+      "step": 94,
+      "force": 22.98,
+      "active": 110,
+      "stage": "release",
+      "img": "assets/frames/ep2_f15.png?v=1783689603"
+    },
+    {
+      "step": 97,
+      "force": 22.85,
+      "active": 109,
+      "stage": "release",
+      "img": "assets/frames/ep2_f16.png?v=1783689603"
+    },
+    {
+      "step": 101,
+      "force": 22.75,
+      "active": 108,
+      "stage": "release",
+      "img": "assets/frames/ep2_f17.png?v=1783689603"
+    },
+    {
+      "step": 105,
+      "force": 23.56,
+      "active": 107,
+      "stage": "release",
+      "img": "assets/frames/ep2_f18.png?v=1783689603"
+    }
+  ],
+  "3": [
+    {
+      "step": 18,
+      "force": 0.49,
+      "active": 12,
+      "stage": "contact forming",
+      "img": "assets/frames/ep3_f0.png?v=1783689603"
+    },
+    {
+      "step": 21,
+      "force": 0.48,
+      "active": 15,
+      "stage": "contact forming",
+      "img": "assets/frames/ep3_f1.png?v=1783689603"
+    },
+    {
+      "step": 25,
+      "force": 0.46,
+      "active": 14,
+      "stage": "contact forming",
+      "img": "assets/frames/ep3_f2.png?v=1783689603"
+    },
+    {
+      "step": 29,
+      "force": 0.45,
+      "active": 13,
+      "stage": "contact forming",
+      "img": "assets/frames/ep3_f3.png?v=1783689603"
+    },
+    {
+      "step": 32,
+      "force": 0.45,
+      "active": 12,
+      "stage": "contact forming",
+      "img": "assets/frames/ep3_f4.png?v=1783689603"
+    },
+    {
+      "step": 36,
+      "force": 0.45,
+      "active": 12,
+      "stage": "contact forming",
+      "img": "assets/frames/ep3_f5.png?v=1783689603"
+    },
+    {
+      "step": 40,
+      "force": 0.43,
+      "active": 13,
+      "stage": "contact forming",
+      "img": "assets/frames/ep3_f6.png?v=1783689603"
+    },
+    {
+      "step": 43,
+      "force": 0.43,
+      "active": 13,
+      "stage": "contact forming",
+      "img": "assets/frames/ep3_f7.png?v=1783689603"
+    },
+    {
+      "step": 47,
+      "force": 0.44,
+      "active": 13,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep3_f8.png?v=1783689603"
+    },
+    {
+      "step": 51,
+      "force": 0.38,
+      "active": 10,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep3_f9.png?v=1783689603"
+    },
+    {
+      "step": 54,
+      "force": 0.37,
+      "active": 10,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep3_f10.png?v=1783689603"
+    },
+    {
+      "step": 58,
+      "force": 0.6,
+      "active": 24,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep3_f11.png?v=1783689603"
+    },
+    {
+      "step": 62,
+      "force": 0.47,
+      "active": 18,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep3_f12.png?v=1783689603"
+    },
+    {
+      "step": 66,
+      "force": 23.11,
+      "active": 123,
+      "stage": "peak grasp",
+      "img": "assets/frames/ep3_f13.png?v=1783689603"
+    },
+    {
+      "step": 69,
+      "force": 0.0,
+      "active": 0,
+      "stage": "release",
+      "img": "assets/frames/ep3_f14.png?v=1783689603"
+    },
+    {
+      "step": 73,
+      "force": 0.0,
+      "active": 0,
+      "stage": "release",
+      "img": "assets/frames/ep3_f15.png?v=1783689603"
+    },
+    {
+      "step": 76,
+      "force": 0.0,
+      "active": 0,
+      "stage": "release",
+      "img": "assets/frames/ep3_f16.png?v=1783689603"
+    },
+    {
+      "step": 80,
+      "force": 0.19,
+      "active": 7,
+      "stage": "release",
+      "img": "assets/frames/ep3_f17.png?v=1783689603"
+    },
+    {
+      "step": 84,
+      "force": 0.0,
+      "active": 0,
+      "stage": "release",
+      "img": "assets/frames/ep3_f18.png?v=1783689603"
+    }
+  ],
+  "4": [
+    {
+      "step": 12,
+      "force": 1.0,
+      "active": 26,
+      "stage": "contact forming",
+      "img": "assets/frames/ep4_f0.png?v=1783689603"
+    },
+    {
+      "step": 15,
+      "force": 1.12,
+      "active": 35,
+      "stage": "contact forming",
+      "img": "assets/frames/ep4_f1.png?v=1783689603"
+    },
+    {
+      "step": 19,
+      "force": 1.07,
+      "active": 34,
+      "stage": "contact forming",
+      "img": "assets/frames/ep4_f2.png?v=1783689603"
+    },
+    {
+      "step": 23,
+      "force": 1.05,
+      "active": 35,
+      "stage": "contact forming",
+      "img": "assets/frames/ep4_f3.png?v=1783689603"
+    },
+    {
+      "step": 26,
+      "force": 1.04,
+      "active": 35,
+      "stage": "contact forming",
+      "img": "assets/frames/ep4_f4.png?v=1783689603"
+    },
+    {
+      "step": 30,
+      "force": 1.03,
+      "active": 34,
+      "stage": "contact forming",
+      "img": "assets/frames/ep4_f5.png?v=1783689603"
+    },
+    {
+      "step": 34,
+      "force": 1.02,
+      "active": 35,
+      "stage": "contact forming",
+      "img": "assets/frames/ep4_f6.png?v=1783689603"
+    },
+    {
+      "step": 37,
+      "force": 1.01,
+      "active": 33,
+      "stage": "contact forming",
+      "img": "assets/frames/ep4_f7.png?v=1783689603"
+    },
+    {
+      "step": 41,
+      "force": 0.95,
+      "active": 30,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep4_f8.png?v=1783689603"
+    },
+    {
+      "step": 45,
+      "force": 0.96,
+      "active": 32,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep4_f9.png?v=1783689603"
+    },
+    {
+      "step": 48,
+      "force": 0.96,
+      "active": 36,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep4_f10.png?v=1783689603"
+    },
+    {
+      "step": 52,
+      "force": 0.97,
+      "active": 31,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep4_f11.png?v=1783689603"
+    },
+    {
+      "step": 56,
+      "force": 0.97,
+      "active": 28,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep4_f12.png?v=1783689603"
+    },
+    {
+      "step": 60,
+      "force": 4.31,
+      "active": 74,
+      "stage": "peak grasp",
+      "img": "assets/frames/ep4_f13.png?v=1783689603"
+    },
+    {
+      "step": 63,
+      "force": 2.11,
+      "active": 47,
+      "stage": "release",
+      "img": "assets/frames/ep4_f14.png?v=1783689603"
+    },
+    {
+      "step": 67,
+      "force": 0.71,
+      "active": 20,
+      "stage": "release",
+      "img": "assets/frames/ep4_f15.png?v=1783689603"
+    },
+    {
+      "step": 70,
+      "force": 0.0,
+      "active": 0,
+      "stage": "release",
+      "img": "assets/frames/ep4_f16.png?v=1783689603"
+    },
+    {
+      "step": 74,
+      "force": 0.0,
+      "active": 0,
+      "stage": "release",
+      "img": "assets/frames/ep4_f17.png?v=1783689603"
+    },
+    {
+      "step": 78,
+      "force": 0.0,
+      "active": 0,
+      "stage": "release",
+      "img": "assets/frames/ep4_f18.png?v=1783689603"
+    }
+  ],
+  "5": [
+    {
+      "step": 103,
+      "force": 1.25,
+      "active": 32,
+      "stage": "contact forming",
+      "img": "assets/frames/ep5_f0.png?v=1783689603"
+    },
+    {
+      "step": 106,
+      "force": 1.18,
+      "active": 32,
+      "stage": "contact forming",
+      "img": "assets/frames/ep5_f1.png?v=1783689603"
+    },
+    {
+      "step": 110,
+      "force": 1.11,
+      "active": 30,
+      "stage": "contact forming",
+      "img": "assets/frames/ep5_f2.png?v=1783689603"
+    },
+    {
+      "step": 114,
+      "force": 1.05,
+      "active": 29,
+      "stage": "contact forming",
+      "img": "assets/frames/ep5_f3.png?v=1783689603"
+    },
+    {
+      "step": 117,
+      "force": 1.01,
+      "active": 29,
+      "stage": "contact forming",
+      "img": "assets/frames/ep5_f4.png?v=1783689603"
+    },
+    {
+      "step": 121,
+      "force": 0.97,
+      "active": 29,
+      "stage": "contact forming",
+      "img": "assets/frames/ep5_f5.png?v=1783689603"
+    },
+    {
+      "step": 125,
+      "force": 0.92,
+      "active": 29,
+      "stage": "contact forming",
+      "img": "assets/frames/ep5_f6.png?v=1783689603"
+    },
+    {
+      "step": 128,
+      "force": 0.89,
+      "active": 29,
+      "stage": "contact forming",
+      "img": "assets/frames/ep5_f7.png?v=1783689603"
+    },
+    {
+      "step": 132,
+      "force": 0.87,
+      "active": 28,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep5_f8.png?v=1783689603"
+    },
+    {
+      "step": 136,
+      "force": 0.84,
+      "active": 27,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep5_f9.png?v=1783689603"
+    },
+    {
+      "step": 139,
+      "force": 0.83,
+      "active": 26,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep5_f10.png?v=1783689603"
+    },
+    {
+      "step": 143,
+      "force": 0.8,
+      "active": 25,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep5_f11.png?v=1783689603"
+    },
+    {
+      "step": 147,
+      "force": 0.0,
+      "active": 0,
+      "stage": "grasp tightening",
+      "img": "assets/frames/ep5_f12.png?v=1783689603"
+    },
+    {
+      "step": 151,
+      "force": 80.37,
+      "active": 139,
+      "stage": "peak grasp",
+      "img": "assets/frames/ep5_f13.png?v=1783689603"
+    },
+    {
+      "step": 154,
+      "force": 0.0,
+      "active": 0,
+      "stage": "release",
+      "img": "assets/frames/ep5_f14.png?v=1783689603"
+    },
+    {
+      "step": 158,
+      "force": 0.0,
+      "active": 0,
+      "stage": "release",
+      "img": "assets/frames/ep5_f15.png?v=1783689603"
+    },
+    {
+      "step": 161,
+      "force": 0.0,
+      "active": 0,
+      "stage": "release",
+      "img": "assets/frames/ep5_f16.png?v=1783689603"
+    },
+    {
+      "step": 165,
+      "force": 0.0,
+      "active": 0,
+      "stage": "release",
+      "img": "assets/frames/ep5_f17.png?v=1783689603"
+    },
+    {
+      "step": 169,
+      "force": 0.0,
+      "active": 0,
+      "stage": "release",
+      "img": "assets/frames/ep5_f18.png?v=1783689603"
+    }
+  ]
+}

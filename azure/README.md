@@ -55,7 +55,7 @@ practically unlimited credits").
   with a much bigger VM, citing effectively unlimited Azure credit.
 - **Resize:** `az vm deallocate` → `az vm resize --size Standard_E16as_v7`
   (16 vCPU, 128GB RAM, no capacity restriction in eastus) → `az vm start`.
-  Same public IP (`20.228.219.201`) preserved across the resize.
+  Same public IP (redacted) preserved across the resize.
 - **Confirmed the leak is real, not a batch-size artifact:** re-ran at full
   batch_size=32 on 128GB — `baseline`'s RSS climbed past the 32GB mark that
   killed it twice before (peaked ~38GB at one point, later observed

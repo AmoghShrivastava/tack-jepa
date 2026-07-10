@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TacK-JEPA — force-native tactile world model</title>
+<meta name="description" content="A kinematically-grounded, force-native world model for articulated multi-taxel tactile sensing. Simulation-only research.">
+<style>
+  :root{
+    --bg:#ffffff; --fg:#0a0a0a; --mid:#555; --line:#0a0a0a; --panel:#f5f5f5; --accent:#0a0a0a;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);
+    font-family:"IBM Plex Mono","SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+    -webkit-font-smoothing:antialiased;}
+  a{color:var(--fg);}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 24px;}
+
+  header.hero{padding:96px 0 64px;border-bottom:1px solid var(--line);}
+  .kicker{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--mid);margin-bottom:18px;}
+  h1{font-size:clamp(28px,4vw,46px);line-height:1.15;margin:0 0 22px;font-weight:600;max-width:900px;}
+  .lede{font-size:16px;line-height:1.65;color:#222;max-width:720px;margin:0 0 8px;}
+  .lede + .lede{color:var(--mid);}
+
+  section{padding:64px 0;border-bottom:1px solid var(--line);}
+  h2{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--mid);margin:0 0 28px;font-weight:600;}
+
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);}
+  .stat{background:var(--bg);padding:24px 20px;}
+  .stat .num{font-size:30px;font-weight:700;line-height:1.1;}
+  .stat .label{font-size:12.5px;color:var(--mid);margin-top:10px;line-height:1.5;}
+  @media (max-width:820px){.stats{grid-template-columns:1fr;}}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);}
+  .card{background:var(--bg);padding:26px 24px;}
+  .card h3{margin:0 0 10px;font-size:15px;}
+  .card p{margin:0;font-size:13.5px;line-height:1.6;color:#333;}
+  .card .fig{font-size:26px;font-weight:700;margin:10px 0 4px;}
+  .card .cap{font-size:12px;color:var(--mid);}
+  @media (max-width:820px){.grid2{grid-template-columns:1fr;}}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid #ddd;}
+  th{color:var(--mid);font-weight:600;text-transform:uppercase;font-size:11px;letter-spacing:.06em;}
+  tr:last-child td{border-bottom:none;}
+  td.hi{font-weight:700;}
+
+  .note{font-size:12.5px;color:var(--mid);line-height:1.6;margin-top:18px;padding-top:18px;border-top:1px dashed #ccc;}
+
+  /* demo */
+  .demo-shell{border:1px solid var(--line);}
+  .demo-head{padding:22px 24px;border-bottom:1px solid var(--line);}
+  .demo-head p{margin:6px 0 0;font-size:13px;color:var(--mid);line-height:1.55;}
+  .tabs{display:flex;border-bottom:1px solid var(--line);}
+  .tab{flex:1;padding:16px;text-align:center;font-size:13px;background:var(--bg);border:none;
+       border-right:1px solid var(--line);cursor:pointer;color:var(--mid);font-family:inherit;}
+  .tab:last-child{border-right:none;}
+  .tab.active{background:var(--fg);color:#fff;font-weight:600;}
+  .demo-body{display:grid;grid-template-columns:2fr 1fr;}
+  .demo-body img{width:100%;display:block;border-right:1px solid var(--line);}
+  .demo-stats{padding:24px;}
+  .demo-stats .row{padding:14px 0;border-bottom:1px solid #e5e5e5;}
+  .demo-stats .row:last-child{border-bottom:none;}
+  .demo-stats .k{font-size:11px;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;}
+  .demo-stats .v{font-size:22px;font-weight:700;margin-top:4px;}
+  .badge{display:inline-block;font-size:11px;letter-spacing:.04em;border:1px solid var(--fg);border-radius:5px;
+         padding:4px 10px;margin-top:16px;color:var(--fg);}
+  @media (max-width:720px){.demo-body{grid-template-columns:1fr;}.demo-body img{border-right:none;border-bottom:1px solid var(--line);}}
+
+  .scrub{padding:16px 20px;border-top:1px solid var(--line);border-right:1px solid var(--line);}
+  .scrub input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:2px;background:var(--fg);outline:none;}
+  .scrub input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--fg);cursor:pointer;}
+  .scrub input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--fg);cursor:pointer;border:none;}
+  .scrub-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--mid);margin-top:8px;text-transform:uppercase;letter-spacing:.04em;}
+
+  .demo-explainer{font-size:13px;color:#333;line-height:1.65;max-width:760px;margin:20px 0 0;}
+  .dot-legend{display:inline-block;width:9px;height:9px;border-radius:50%;background:#17becf;margin:0 1px;}
+
+  footer{padding:40px 0 80px;}
+  footer p{font-size:12.5px;color:var(--mid);line-height:1.7;}
+  code{background:var(--panel);padding:1px 6px;border-radius:3px;font-size:12px;}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <h1>Introducing TacK-JEPA: JEPA Model for Robot Tactility</h1>
+    <p class="lede">TacK-JEPA gives a robot hand model the exact 3D position of every one of its tactile sensors, computed directly from joint geometry — no vision model required to guess where a touch happened.</p>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2>System, in numbers</h2>
+    <div class="stats">
+      <div class="stat"><div class="num">1e-5</div><div class="label">forward-kinematics agreement with the underlying physics solver</div></div>
+      <div class="stat"><div class="num">53 / 53</div><div class="label">unit tests passing — kinematics, force conservation, model components</div></div>
+      <div class="stat"><div class="num">18–25×</div><div class="label">more embedding variance retained than architecture variants without the full training objective</div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Built for a different class of tactile hardware</h2>
+    <p style="font-size:13.5px;color:#333;line-height:1.6;max-width:760px;margin:0;">
+      Most tactile sensing today comes from one or two optical sensors (like GelSight or
+      DIGIT) mounted at a fingertip, imaged like a tiny camera. TacK-JEPA is built for a
+      structurally different kind of hardware: an articulated hand covered in a distributed
+      array of independent force-sensing elements ("taxels") spread across every finger and
+      the palm, each tied to a joint-tracked link — the sensing approach used by devices like
+      <strong>OSMO's</strong> open-source tactile glove. Because every taxel's position is
+      pinned to a joint encoder reading, its exact 3D location is known outright rather than
+      inferred from an image, which is the property this model is built to exploit directly.
+    </p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>What does kinematic grounding offer?</h2>
+    <p style="font-size:13.5px;color:#333;line-height:1.6;max-width:760px;margin:0 0 28px;">
+      Controlled comparison against an otherwise-identical model with the exact 3D taxel
+      geometry removed, evaluated on grasps the model never trained on.
+    </p>
+    <div class="grid2">
+      <div class="card">
+        <h3>Per-taxel force estimation</h3>
+        <div class="fig">31% lower error</div>
+        <div class="cap">than the same model without kinematic grounding.</div>
+      </div>
+      <div class="card">
+        <h3>Contact area estimation</h3>
+        <div class="fig">3.2&times; lower error</div>
+        <div class="cap">than the same model without kinematic grounding.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="demo" style="border-bottom:none;">
+  <div class="wrap">
+    <h2>Try it — step through real grasp episodes</h2>
+    <div class="demo-shell">
+      <div class="demo-head">
+        <strong>Per-taxel contact force, computed by the actual pipeline</strong>
+        <p>Playing automatically — every frame is rendered directly from the model's contact-sensing pipeline on a real simulated grasp. Drag the slider to take control.</p>
+      </div>
+      <div class="tabs" id="tabs">
+        <button class="tab active" data-ep="1">Episode 1</button>
+        <button class="tab" data-ep="2">Episode 2</button>
+        <button class="tab" data-ep="3">Episode 3</button>
+        <button class="tab" data-ep="4">Episode 4</button>
+        <button class="tab" data-ep="5">Episode 5</button>
+      </div>
+      <div class="demo-body">
+        <div>
+          <img id="demo-img" src="" alt="Per-taxel force heatmap">
+          <div class="scrub">
+            <input type="range" id="scrub" min="0" max="18" value="0" step="1">
+            <div class="scrub-labels">
+              <span id="stage-label">contact forming</span>
+              <span id="mode-label">auto-playing</span>
+            </div>
+          </div>
+        </div>
+        <div class="demo-stats">
+          <div class="row"><div class="k">Grasp force at this step</div><div class="v" id="stat-force">— N</div></div>
+          <div class="row"><div class="k">Active taxels at this step</div><div class="v" id="stat-taxels">—</div></div>
+          <div class="row"><div class="k">Simulation step</div><div class="v" id="stat-step">—</div></div>
+          <div class="badge">Never seen during training</div>
+        </div>
+      </div>
+    </div>
+    <p class="demo-explainer">The hand modeled here is based on the <strong>Allegro Hand</strong>, which has an opposable thumb. Each black point is one of its tactile sensors, plotted at its exact 3D position — computed from the hand's joint angles, not estimated. The <span class="dot-legend"></span> cyan dot marks the object being grasped. As the hand closes around it, the sensors that make contact light up on a black-to-yellow scale showing how much force each one is reading at that instant — brighter means more force.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>TacK-JEPA is an independent research project testing whether exact kinematic grounding improves tactile world models, built and evaluated entirely in simulation with no physical hardware.</p>
+  </div>
+</footer>
+
+<script>
+  let FRAMES = {};
+  let currentEp = "1";
+  let playDir = 1;
+  let playTimer = null;
+  let userControlled = false;
+
+  const scrubEl = document.getElementById("scrub");
+  const modeLabel = document.getElementById("mode-label");
+  const preloaded = new Set();
+
+  function preloadEpisode(ep) {
+    if (preloaded.has(ep)) return;
+    preloaded.add(ep);
+    FRAMES[ep].forEach(f => { const im = new Image(); im.src = f.img; });
+  }
+
+  function renderFrame(i) {
+    const frames = FRAMES[currentEp];
+    const f = frames[Math.min(i, frames.length - 1)];
+    document.getElementById("demo-img").src = f.img;
+    document.getElementById("stat-force").textContent = f.force.toFixed(2) + " N";
+    document.getElementById("stat-taxels").textContent = f.active;
+    document.getElementById("stat-step").textContent = f.step;
+    document.getElementById("stage-label").textContent = f.stage;
+    scrubEl.value = i;
+  }
+
+  function stopAutoplay() {
+    if (playTimer) { clearInterval(playTimer); playTimer = null; }
+    modeLabel.textContent = "paused — drag to explore";
+  }
+
+  function startAutoplay() {
+    stopAutoplay();
+    userControlled = false;
+    modeLabel.textContent = "auto-playing";
+    let i = parseInt(scrubEl.value, 10);
+    playTimer = setInterval(() => {
+      const last = FRAMES[currentEp].length - 1;
+      i += playDir;
+      if (i >= last) { i = last; playDir = -1; }
+      else if (i <= 0) { i = 0; playDir = 1; }
+      renderFrame(i);
+    }, 220);
+  }
+
+  function selectEpisode(ep) {
+    currentEp = ep;
+    playDir = 1;
+    scrubEl.max = FRAMES[ep].length - 1;
+    preloadEpisode(ep);
+    renderFrame(0);
+    startAutoplay();
+  }
+
+  document.getElementById("tabs").addEventListener("click", (e) => {
+    const btn = e.target.closest(".tab");
+    if(!btn) return;
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    btn.classList.add("active");
+    selectEpisode(btn.dataset.ep);
+  });
+
+  scrubEl.addEventListener("pointerdown", () => { userControlled = true; stopAutoplay(); });
+  scrubEl.addEventListener("input", (e) => {
+    renderFrame(parseInt(e.target.value, 10));
+  });
+
+  fetch("assets/frames.json", {cache: "no-store"}).then(r => r.json()).then(data => {
+    FRAMES = data;
+    selectEpisode("1");
+    setTimeout(() => Object.keys(FRAMES).forEach(preloadEpisode), 300);
+  });
+</script>
+
+</body>
+</html>
