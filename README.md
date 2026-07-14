@@ -34,10 +34,51 @@ evolves, propagates, predicts slip, and responds to action). TacK-JEPA is a
 force-native (not image-native), kinematically-grounded (exact FK, not
 learned), JEPA-style (latent prediction, not reconstruction) world model
 built to test that hypothesis directly, with the ablations needed to falsify
-it built into the same codebase. No comparable architecture existed in the
-literature as of this project's writing (see [`docs/literature.md`](docs/literature.md)
-for the full survey) — this is a research-novelty bet on where tactile
-hardware is heading, not an incremental improvement on an existing baseline.
+it built into the same codebase.
+
+To be precise about what's actually new here: JEPA-style pretraining for
+touch already exists — Meta's SPARSH trains and releases an I-JEPA variant
+alongside MAE/DINO variants — and action-conditioned tactile world models
+already exist too (TacForeSight, Dream-Tac). What doesn't exist in the
+literature as of this project's writing (see
+[`docs/literature.md`](docs/literature.md) for the full survey) is JEPA-style
+prediction combined with **exact kinematic grounding over a distributed
+multi-taxel field**, rather than a single optical patch or 1–2 point
+force/torque sensors. That specific combination is the research-novelty bet,
+not "JEPA for touch" in general.
+
+## How this compares to standard approaches
+
+| | Sensor / signal | Geometry | Prediction target |
+|---|---|---|---|
+| **SPARSH, AnyTouch, T3, UniT** | Optical tactile image (GelSight/DIGIT), 1–2 patches/hand | Inferred from pixels (unknown to the model) | Masked/latent prediction *within* a static image (I-JEPA/MAE/DINO-style) |
+| **TacForeSight, Dream-Tac** | Real force/torque sensor(s), 1–2 points | Not kinematically tracked | Future latent state, conditioned on action |
+| **TacK-JEPA (this project)** | Simulated distributed taxel field, ~2,200 sensors/hand | Exact, via forward kinematics (given, not inferred) | Future latent state, conditioned on action |
+
+## Input and output
+
+Concretely, per simulation timestep:
+
+- **Input to the encoder:** a graph of ~2,200 nodes, one per taxel spread
+  across the hand. Each node carries a feature vector — 3D world-frame
+  position (exact, from forward kinematics, not learned), surface normal,
+  a 3D force vector (normal + 2D shear), and a link-ID embedding. Edges
+  connect taxels that are spatially close in world frame (recomputed every
+  timestep as the hand moves) plus a static backbone linking taxels on the
+  same rigid link. The hand's 22-dimensional action vector (16 finger joint
+  angles + 6 floating-wrist pose) conditions the predictor.
+- **Output:** not an image, not raw sensor values — a **predicted latent
+  vector**, k timesteps in the future. An online encoder embeds the current
+  graph; a predictor takes that embedding plus the action sequence and
+  predicts the embedding a target encoder (an EMA/momentum copy of the
+  online encoder, gradients stopped) will produce k steps later. Training
+  minimizes the distance between the two — the model never has to predict or
+  reconstruct a single raw taxel value.
+- **At evaluation time only** (not part of the training loss), small frozen
+  probe heads take the encoder's latent and predict interpretable physical
+  quantities — per-taxel force magnitude, a binary slip indicator, and
+  contact area — purely to check whether the latent space encodes useful
+  physical structure, not to train the encoder itself.
 
 ## The core idea, in one picture
 
